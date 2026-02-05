@@ -1,0 +1,96 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Users {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  email     String?  @unique
+  displayName String
+  role      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  patients  Patients[]
+  therapyHistories TherapyHistorys[]
+}
+
+model Patients {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  firstName     String
+  lastName      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  users         Users @relation(fields: [userId], references: [id])
+  patientSymptoms PatientSymptoms[]
+  therapyHistories  TherapyHistorys[]
+}
+
+model Symptoms {
+  id        Int      @id @default(autoincrement())
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt   DateTime?
+
+  patientSymptoms PatientSymptoms[]
+}
+
+model PatientSymptoms {
+  id         Int      @id @default(autoincrement())
+  patientId  Int
+  symptomsId Int
+  level      Int
+  armSide    String
+  createdAt  DateTime @default(now())
+  deletedAt   DateTime?
+
+  patients    Patients  @relation(fields: [patientId], references: [id])
+  symptoms   Symptoms @relation(fields: [symptomsId], references: [id])
+
+  @@unique([patientId, symptomsId])
+}
+
+model TherapyTypes {
+  id        Int      @id @default(autoincrement())
+  title     String
+  description String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt   DateTime?
+
+  therapyHistories TherapyHistorys[]
+}
+
+model TherapyHistorys {
+  id                Int      @id @default(autoincrement())
+  patientId         Int
+  userId            Int
+  therapyTypesId    Int
+  time              Int?
+  score             Int?
+  weight            Float?
+  angle             Int?
+  createdAt         DateTime @default(now())
+  deletedAt         DateTime?
+
+  users             Users @relation(fields: [userId], references: [id])
+  patients          Patients @relation(fields: [patientId], references: [id])
+  therapyTypes      TherapyTypes @relation(fields: [therapyTypesId], references: [id])
+}
