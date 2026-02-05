@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "TherapyHistorys" ALTER COLUMN "weight" SET DATA TYPE DOUBLE PRECISION;
