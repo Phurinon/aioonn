@@ -1,0 +1,24 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+}
+
+.search-input::placeholder {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 400;
+  /* Regular */
+  font-size: 18px;
+  color: rgba(171, 183, 194, 1);
+}
