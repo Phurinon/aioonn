@@ -1,36 +1,35 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
-
-// ข้อมูลหมวดหมู่กิจกรรม
-const categories = [
-  {
-    id: "arm-raise",
-    title: "การยกแขน",
-    description: "ฝึกการยกแขนพัฒนาการหมุนของหัวไหล่",
-    icon: "🙋",
-    color: "bg-[#E8F8FA]",
-    iconColor: "text-[#40C9D5]",
-  },
-  {
-    id: "core",
-    title: "แกนกลางลำตัว",
-    description: "ดูความบาลานซ์ของร่างกาย\nปรับท่ายืน",
-    icon: "🧍",
-    color: "bg-[#E8F8FA]",
-    iconColor: "text-[#40C9D5]",
-  },
-  {
-    id: "exercise",
-    title: "การออกกำลังกาย",
-    description: "บริหารและพัฒนากล้ามเนื้อ",
-    icon: "🏋️",
-    color: "bg-[#FFF4E5]",
-    iconColor: "text-[#F5A623]",
-  },
-];
+import { getTherapyType } from "../Functions/therapy";
 
 export default function SelectCategory() {
   const { patientId } = useParams();
+  const [categories, setCategories] = useState([]);
+
+  // Mapping Category เป็นภาษาไทย
+  const categoryMapping = {
+    "arm-raise": "การยกแขน",
+    core: "แกนกลางลำตัว",
+    exercise: "การออกกำลังกาย",
+  };
+
+  useEffect(() => {
+    getTherapyType()
+      .then((res) => {
+        const data = res.data;
+        if (data && Array.isArray(data)) {
+          // Extract unique categories
+          const uniqueCategories = [
+            ...new Set(data.map((item) => item.category)),
+          ].filter(Boolean); // Remove null/undefined
+          
+          setCategories(uniqueCategories);
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching categories:", err);
+      });
+  }, []);
 
   return (
     <div className="w-full min-h-screen bg-[#F3FBFC]">
@@ -55,25 +54,19 @@ export default function SelectCategory() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
           {categories.map((category) => (
             <Link
-              to={`/select-mode/${patientId}/${category.id}`}
-              key={category.id}
-              className="bg-white rounded-3xl p-8 shadow-sm hover:shadow-lg transition-all border border-gray-100 cursor-pointer group hover:-translate-y-1"
+              to={`/select-mode/${patientId}/${category}`}
+              key={category}
+              className="bg-white rounded-3xl p-8 shadow-sm hover:shadow-lg transition-all border border-gray-100 cursor-pointer group hover:-translate-y-1 block"
             >
-              {/* Icon */}
-              <div
-                className={`w-20 h-20 ${category.color} rounded-full flex items-center justify-center mx-auto mb-6 text-4xl group-hover:scale-110 transition-transform`}
-              >
-                {category.icon}
-              </div>
-
               {/* Title */}
               <h3 className="font-bold text-[#344054] text-xl mb-3">
-                {category.title}
+                {category}
               </h3>
 
-              {/* Description */}
-              <p className="text-[#7E8C94] text-sm whitespace-pre-line">
-                {category.description}
+              <div className="w-16 h-1 bg-[#40C9D5] rounded-full mx-auto mb-4"></div>
+
+              <p className="text-[#7E8C94] text-sm">
+                 คลิกเพื่อดูโหมดทั้งหมดในหมวดหมู่นี้
               </p>
             </Link>
           ))}
