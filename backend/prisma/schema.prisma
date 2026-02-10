@@ -68,11 +68,13 @@ model PatientSymptoms {
 }
 
 model TherapyTypes {
-  id        Int      @id @default(autoincrement())
-  title     String
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  title       String
   description String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  category    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
 
   therapyHistories TherapyHistorys[]
