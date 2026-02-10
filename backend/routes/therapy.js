@@ -40,7 +40,7 @@ router.get("/therapy/listBy/:id", async (req, res) => {
 
 router.post("/therapy/add-type", async (req, res) => {
   try {
-    const { title, description } = req.body;
+    const { title, description, slug, category } = req.body;
 
     if (!title) {
       return res.status(400).json({ message: "Therapy type title is required" });
@@ -63,6 +63,8 @@ router.post("/therapy/add-type", async (req, res) => {
       data: {
         title,
         description: description || "",
+        slug,
+        category,
       },
     });
 
@@ -78,10 +80,10 @@ router.post("/therapy/add-type", async (req, res) => {
 router.put("/therapy/update/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description } = req.body;
+    const { title, description, slug, category } = req.body;
     const updatedTherapy = await prisma.therapyTypes.update({
       where: { id: parseInt(id) },
-      data: { title, description },
+      data: { title, description, slug, category },
     });
     return res
       .status(200)
