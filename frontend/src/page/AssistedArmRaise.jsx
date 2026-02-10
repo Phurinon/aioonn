@@ -66,7 +66,7 @@ export default function AssistedArmRaise() {
           alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
         }
       } else {
-        // กดเริ่ม → lock คนปัจจุบัน
+        // กดเริ่ม → lock คนปัจจุบันหรือที่เจอคนแรก
         const success = mediapipeRef.current.lockCurrentPerson();
         if (success) {
           startTimeRef.current = Date.now();
@@ -118,10 +118,10 @@ export default function AssistedArmRaise() {
       <div className="flex-1 flex items-center justify-center bg-[#F3FBFC] overflow-hidden relative">
         {/* จอกล้อง - ใช้ Mediapipe component */}
         <div className="w-full h-full flex items-center justify-center">
-          <Mediapipe 
-            ref={mediapipeRef} 
-            mode="assisted" 
-            enableCounting={true} 
+          <Mediapipe
+            ref={mediapipeRef}
+            mode="assisted"
+            enableCounting={true}
             angleThreshold={threshold}
           />
         </div>
@@ -199,11 +199,10 @@ export default function AssistedArmRaise() {
             </button>
             <button
               onClick={handleToggleTracking}
-              className={`px-8 py-3 font-semibold rounded-lg transition shadow-md min-w-[120px] ${
-                isTracking
+              className={`px-8 py-3 font-semibold rounded-lg transition shadow-md min-w-[120px] ${isTracking
                   ? "bg-red-500 text-white hover:bg-red-600"
                   : "bg-[#40C9D5] text-white hover:bg-[#2BA8B4]"
-              }`}
+                }`}
             >
               {isTracking ? "หยุด" : "เริ่ม"}
             </button>
