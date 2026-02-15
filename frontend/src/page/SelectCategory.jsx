@@ -1,10 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { getTherapyType } from "../Functions/therapy";
 
 export default function SelectCategory() {
   const { patientId } = useParams();
+  const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
+
+  // Check for Daily ROM Test requirement
+  useEffect(() => {
+    const lastTestTime = localStorage.getItem(`lastDailyRomTest_${patientId}`);
+    const now = Date.now();
+    const oneMinute = 60 * 1000; // 1 minute for testing
+
+    if (!lastTestTime || (now - parseInt(lastTestTime) > oneMinute)) {
+      navigate(`/daily-rom-test/${patientId}`);
+    }
+  }, [patientId, navigate]);
 
   // Mapping Category เป็นภาษาไทย
   const categoryMapping = {
@@ -22,7 +34,7 @@ export default function SelectCategory() {
           const uniqueCategories = [
             ...new Set(data.map((item) => item.category)),
           ].filter(Boolean); // Remove null/undefined
-          
+
           setCategories(uniqueCategories);
         }
       })
@@ -66,7 +78,7 @@ export default function SelectCategory() {
               <div className="w-16 h-1 bg-[#40C9D5] rounded-full mx-auto mb-4"></div>
 
               <p className="text-[#7E8C94] text-sm">
-                 คลิกเพื่อดูโหมดทั้งหมดในหมวดหมู่นี้
+                คลิกเพื่อดูโหมดทั้งหมดในหมวดหมู่นี้
               </p>
             </Link>
           ))}

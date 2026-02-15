@@ -17,6 +17,7 @@ const Mediapipe = forwardRef(function Mediapipe(
     enableCounting = false, // เปิด/ปิดการนับจำนวนครั้ง
     showCountOverlay = false, // แสดง count overlay ใน component หรือไม่ (default ปิด ให้หน้าจัดการเอง)
     angleThreshold = 135, // องศาที่ต้องยกถึง (default 135)
+    onAngleUpdate = null, // Callback sending { right, left } angles
   },
   ref
 ) {
@@ -344,8 +345,32 @@ const Mediapipe = forwardRef(function Mediapipe(
       const rightAngle = calculateAngle(rightHip, rightShoulder, rightElbow);
       const leftAngle = calculateAngle(leftHip, leftShoulder, leftElbow);
 
-      // ใช้มุมที่สูงกว่า (แขนข้างใดข้างหนึ่งก็ได้)
+      // New: Calculate Forearm Angles (Absolute angle relative to horizontal)
+      // 90 = Up (Vertical), 0 = Right, 180 = Left, -90 = Down
+      // Formula: Math.atan2(Elbow.y - Wrist.y, Wrist.x - Elbow.x) * 180 / PI
+      // Note: Y is inverted in MediaPipe (0 is top), so (Elbow.y - Wrist.y) gives positive for Up.
+
+      const calculateForearmAngle = (elbow, wrist) => {
+        if (!elbow || !wrist) return 0;
+        return Math.atan2(elbow.y - wrist.y, wrist.x - elbow.x) * 180 / Math.PI;
+      };
+
+      const rightForearmAngle = calculateForearmAngle(rightElbow, flippedLandmarks[16]); // 16 = Right Wrist
+      const leftForearmAngle = calculateForearmAngle(leftElbow, flippedLandmarks[15]);  // 15 = Left Wrist
+
+      // ใช้มุมที่สูงกว่า (แขนข้างใดข้างหนึ่งก็ได้) -- Keep existing logic for Max but it's mostly for shoulder
       const maxAngle = Math.max(rightAngle || 0, leftAngle || 0);
+
+      // Send angles to parent
+      if (onAngleUpdate) {
+        onAngleUpdate({
+          right: rightAngle || 0,
+          left: leftAngle || 0,
+          rightForearm: rightForearmAngle || 0,
+          leftForearm: leftForearmAngle || 0,
+          max: maxAngle
+        });
+      }
 
       // นับเมื่อ: enableCounting=true และ กำลัง lock อยู่ และ มุม >= 165 องศา และ ก่อนหน้านี้แขนลงอยู่
       const isLockActive = isLocked || pendingLockRef.current;
@@ -371,7 +396,7 @@ const Mediapipe = forwardRef(function Mediapipe(
       // ถือว่าแขนลงเมื่อมุมน้อยกว่าค่ากึ่งกลาง หรือค่าคงที่
       // ปรับให้ยืดหยุ่นขึ้นเพื่อให้ผู้ใช้งานไม่ต้องเอาแขนลงสุดๆ ก็สามารถนับครั้งต่อไปได้
       const resetThreshold = Math.min(60, angleThresholdRef.current - 20);
-      
+
       if (enableCountingRef.current && maxAngle < resetThreshold) {
         armWasDownRef.current = true;
       }

@@ -18,6 +18,7 @@ import Register from "../page/Register.jsx";
 import Profile from "../page/Profile.jsx";
 import TherapyHistory from "../page/TherapyHistory.jsx";
 import Summary from "../page/Summary.jsx";
+import DailyRomTesting from "../page/DailyRomTesting.jsx";
 
 // สร้าง routes configuration ที่สามารถ reuse ได้
 const routes = [
@@ -79,6 +80,11 @@ const routes = [
             path: "activity/:patientId/exercise/stretch",
             element: <Stretching />,
           },
+          // หน้า Daily ROM Testing
+          {
+            path: "daily-rom-test/:patientId",
+            element: <DailyRomTesting />,
+          },
         ],
       },
       // หน้า Profile (ไม่ใช้ Layout หลัก)
@@ -92,7 +98,7 @@ const routes = [
       },
     ],
   },
-  
+
   // Public Routes
   // หน้า Login (ไม่ใช้ Layout หลัก)
   {
