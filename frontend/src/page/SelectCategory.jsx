@@ -11,18 +11,18 @@ export default function SelectCategory() {
   useEffect(() => {
     const lastTestTime = localStorage.getItem(`lastDailyRomTest_${patientId}`);
     const now = Date.now();
-    const oneMinute = 60 * 1000; // 1 minute for testing
+    const tenHours = 10 * 60 * 60 * 1000; // 10 hours for testing
 
-    if (!lastTestTime || (now - parseInt(lastTestTime) > oneMinute)) {
+    if (!lastTestTime || (now - parseInt(lastTestTime) > tenHours)) {
       navigate(`/daily-rom-test/${patientId}`);
     }
   }, [patientId, navigate]);
 
-  // Mapping Category เป็นภาษาไทย
+  // Mapping Category ชื่อใหม่
   const categoryMapping = {
-    "arm-raise": "การยกแขน",
-    core: "แกนกลางลำตัว",
-    exercise: "การออกกำลังกาย",
+    "arm-raise": "Active",
+    core: "Passive",
+    exercise: "Preset",
   };
 
   useEffect(() => {
@@ -66,13 +66,16 @@ export default function SelectCategory() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
           {categories.map((category) => (
             <Link
-              to={`/select-mode/${patientId}/${category}`}
+              to={category === "exercise"
+                ? `/activity/${patientId}/routine/list`
+                : `/select-mode/${patientId}/${category}`
+              }
               key={category}
               className="bg-white rounded-3xl p-8 shadow-sm hover:shadow-lg transition-all border border-gray-100 cursor-pointer group hover:-translate-y-1 block"
             >
               {/* Title */}
               <h3 className="font-bold text-[#344054] text-xl mb-3">
-                {category}
+                {categoryMapping[category] || category}
               </h3>
 
               <div className="w-16 h-1 bg-[#40C9D5] rounded-full mx-auto mb-4"></div>

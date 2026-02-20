@@ -5,20 +5,22 @@ import ActivityLayout from "../layouts/ActivityLayout.jsx";
 import Dashboard from "../page/Dashboard.jsx";
 import SelectCategory from "../page/SelectCategory.jsx";
 import SelectMode from "../page/SelectMode.jsx";
-import AssistedArmRaise from "../page/AssistedArmRaise.jsx";
-import ByselfArmRaise from "../page/ByselfArmRaise.jsx";
-import CountArmRaise from "../page/CountArmRaise.jsx";
-import TimerCountArmRaise from "../page/TimerCountArmRaise.jsx";
-import Balance from "../page/Balance.jsx";
-import Standing from "../page/Standing.jsx";
-import MusleTraining from "../page/MusleTraining.jsx";
-import Stretching from "../page/Stretching.jsx";
+import ShoulderFlexion from "../page/Active/ShoulderFlexion.jsx";
+import ShoulderAbduction from "../page/Active/ShoulderAbduction.jsx";
+import ElbowRotation from "../page/Active/ElbowRotation.jsx";
+import Balance from "../page/Passive/Balance.jsx";
+import Standing from "../page/Passive/Standing.jsx";
+import MusleTraining from "../page/Preset/MusleTraining.jsx";
+import Stretching from "../page/Preset/Stretching.jsx";
 import Login from "../page/Login.jsx";
 import Register from "../page/Register.jsx";
 import Profile from "../page/Profile.jsx";
 import TherapyHistory from "../page/TherapyHistory.jsx";
 import Summary from "../page/Summary.jsx";
 import DailyRomTesting from "../page/DailyRomTesting.jsx";
+import RoutineList from "../page/Preset/RoutineList.jsx";
+import RoutineBuilder from "../page/Preset/RoutineBuilder.jsx";
+import RoutineRunner from "../page/Preset/RoutineRunner.jsx";
 
 // สร้าง routes configuration ที่สามารถ reuse ได้
 const routes = [
@@ -46,25 +48,19 @@ const routes = [
           { path: "select-category/:patientId", element: <SelectCategory /> },
           // หน้าเลือกโหมด (รับ categoryId จาก URL)
           { path: "select-mode/:patientId/:categoryId", element: <SelectMode /> },
-          // หน้า Activity - มีผู้ช่วยยกแขน
+          // หน้า Activity - จับเวลา (Legacy route, kept for safety or remove if unused)
+          // New Active Modes
           {
-            path: "activity/:patientId/arm-raise/assisted",
-            element: <AssistedArmRaise />,
+            path: "activity/:patientId/active/shoulder-flexion",
+            element: <ShoulderFlexion />,
           },
-          // หน้า Activity - ยกแขนด้วยตัวเอง
           {
-            path: "activity/:patientId/arm-raise/self",
-            element: <ByselfArmRaise />,
+            path: "activity/:patientId/active/shoulder-abduction",
+            element: <ShoulderAbduction />,
           },
-          // หน้า Activity - นับจำนวน
           {
-            path: "activity/:patientId/arm-raise/count",
-            element: <CountArmRaise />,
-          },
-          // หน้า Activity - จับเวลา
-          {
-            path: "activity/:patientId/arm-raise/timer",
-            element: <TimerCountArmRaise />,
+            path: "activity/:patientId/active/elbow-rotation",
+            element: <ElbowRotation />,
           },
           // หน้า Activity - ทดสอบการทรงตัว (แกนกลางลำตัว)
           { path: "activity/:patientId/core/balance", element: <Balance /> },
@@ -74,6 +70,23 @@ const routes = [
           {
             path: "activity/:patientId/exercise/strength",
             element: <MusleTraining />,
+          },
+          // Routine Flow
+          {
+            path: "activity/:patientId/routine/list",
+            element: <RoutineList />,
+          },
+          {
+            path: "activity/:patientId/routine/create",
+            element: <RoutineBuilder />,
+          },
+          {
+            path: "activity/:patientId/routine/edit/:routineId",
+            element: <RoutineBuilder />,
+          },
+          {
+            path: "activity/:patientId/routine/run/:routineId",
+            element: <RoutineRunner />,
           },
           // หน้า Activity - ยืดเหยียด (การออกกำลังกาย)
           {

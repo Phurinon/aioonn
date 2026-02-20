@@ -18,6 +18,7 @@ const Mediapipe = forwardRef(function Mediapipe(
     showCountOverlay = false, // แสดง count overlay ใน component หรือไม่ (default ปิด ให้หน้าจัดการเอง)
     angleThreshold = 135, // องศาที่ต้องยกถึง (default 135)
     onAngleUpdate = null, // Callback sending { right, left } angles
+    trackingMode = "shoulder", // "shoulder" or "elbow"
   },
   ref
 ) {
@@ -359,7 +360,41 @@ const Mediapipe = forwardRef(function Mediapipe(
       const leftForearmAngle = calculateForearmAngle(leftElbow, flippedLandmarks[15]);  // 15 = Left Wrist
 
       // ใช้มุมที่สูงกว่า (แขนข้างใดข้างหนึ่งก็ได้) -- Keep existing logic for Max but it's mostly for shoulder
-      const maxAngle = Math.max(rightAngle || 0, leftAngle || 0);
+      let maxAngle = 0;
+
+      if (trackingMode === "elbow") {
+        // Elbow Rotation / External Rotation Logic
+        // Similar to DailyRomTesting: 0 (Down) to 180 (Up).
+        // We want to track rotation outward.
+        // Assuming elbow is at side, forearm moves from belly (internal) to side (external).
+        // Let's use the logic from DailyRomTesting which seemed to work for "External Rotation".
+
+        const calcScore = (rawForearm) => {
+          let val = (rawForearm || 0) + 90;
+          if (val < 0) val = 0;
+          if (val > 180) val = 180;
+          return 180 - val; // Inverted: Up=0, Down=180. Wait, check DailyRomTesting again.
+        };
+
+        // DailyRomTesting: Start (Up) = 0. End (Down) = 180.
+        // But for rotation, we usually want 0 to be "in" and 90 to be "out".
+        // Let's stick to the raw forearm angle for now or the same metric if it worked for the user before.
+        // DailyRom used: Score = 180 - ForearmAngle.
+
+        // Check Shoulder Angle Constraint (Must be 70-120)
+        // If shoulder is not raised, we don't count the rotation score.
+        const isRightShoulderValid = rightAngle >= 70 && rightAngle <= 120;
+        const isLeftShoulderValid = leftAngle >= 70 && leftAngle <= 120;
+
+        const rightScore = isRightShoulderValid ? calcScore(rightForearmAngle) : 0;
+        const leftScore = isLeftShoulderValid ? calcScore(leftForearmAngle) : 0;
+
+        maxAngle = Math.max(rightScore, leftScore);
+
+      } else {
+        // Default: Shoulder (Flexion/Abduction)
+        maxAngle = Math.max(rightAngle || 0, leftAngle || 0);
+      }
 
       // Send angles to parent
       if (onAngleUpdate) {

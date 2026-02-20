@@ -26,6 +26,7 @@ model Users {
 
   patients  Patients[]
   therapyHistories TherapyHistorys[]
+  routines         Routine[]
 }
 
 model Patients {
@@ -78,6 +79,33 @@ model TherapyTypes {
   deletedAt   DateTime?
 
   therapyHistories TherapyHistorys[]
+  routineSteps     RoutineStep[]
+}
+
+model Routine {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  user        Users         @relation(fields: [userId], references: [id])
+  steps       RoutineStep[]
+}
+
+model RoutineStep {
+  id            Int      @id @default(autoincrement())
+  routineId     Int
+  therapyTypeId Int
+  order         Int
+  targetCount   Int?
+  targetTime    Int?
+  weight        Float?
+
+  routine       Routine      @relation(fields: [routineId], references: [id])
+  therapyType   TherapyTypes @relation(fields: [therapyTypeId], references: [id])
 }
 
 model TherapyHistorys {

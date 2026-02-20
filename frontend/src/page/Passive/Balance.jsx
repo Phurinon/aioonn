@@ -1,46 +1,113 @@
 import React, { useRef, useState } from "react";
-import Mediapipe from "../components/Mediapipe";
-import ExerciseHistoryModal from "../components/ExerciseHistoryModal";
+import Mediapipe from "../../components/Mediapipe";
+import { addTherapyHistory } from "../../Functions/therapy";
+import ExerciseHistoryModal from "../../components/ExerciseHistoryModal";
+import { useParams } from "react-router-dom";
 
-export default function Balance() {
+export default function Balance({
+    isRoutineMode = false,
+    autoStart = true,
+    presetTargetTime = 0,
+    onComplete = null
+}) {
+    const { patientId } = useParams();
     const mediapipeRef = useRef(null);
     const [isTracking, setIsTracking] = useState(false);
     const startTimeRef = useRef(null);
+    const timerRef = useRef(null);
+    const [elapsedTime, setElapsedTime] = useState(0);
 
     // Session history state
     const [sessionHistory, setSessionHistory] = useState([]);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
-    const handleToggleTracking = () => {
-        if (mediapipeRef.current) {
-            if (isTracking) {
-                // กดหยุด → unlock และบันทึกข้อมูล
-                mediapipeRef.current.unlockPerson();
+    // Effects for routine mode
+    useEffect(() => {
+        if (isRoutineMode && autoStart) {
+            // Start automatically in routine mode if requested
+            const timer = setTimeout(() => {
+                handleStart();
+            }, 3000);
+            return () => {
+                clearTimeout(timer);
+                if (timerRef.current) clearInterval(timerRef.current);
+            };
+        }
+    }, [isRoutineMode, autoStart]);
 
-                // คำนวณเวลาที่เล่น
-                const duration = Math.floor((Date.now() - startTimeRef.current) / 1000);
+    const handleStart = () => {
+        if (mediapipeRef.current && !isTracking) {
+            const success = mediapipeRef.current.lockCurrentPerson();
+            if (success) {
+                startTimeRef.current = Date.now();
+                setIsTracking(true);
+                setElapsedTime(0);
 
-                // สร้างข้อมูล session ใหม่ (mock data)
-                const balanceScore = Math.floor(Math.random() * 30) + 70; // 70-100 คะแนน
-                const newSession = {
-                    id: Date.now(),
-                    timestamp: new Date(),
-                    duration: duration,
-                    score: balanceScore,
-                    stability: balanceScore >= 90 ? "ดีมาก" : balanceScore >= 80 ? "ดี" : "ปานกลาง",
-                    note: "การทรงตัวอยู่ในเกณฑ์" + (balanceScore >= 80 ? "ดี" : "พอใช้")
-                };
-
-                setSessionHistory(prev => [newSession, ...prev]);
-                setIsTracking(false);
-            } else {
-                // กดเริ่ม → lock คนปัจจุบัน
-                const success = mediapipeRef.current.lockCurrentPerson();
-                if (success) {
-                    startTimeRef.current = Date.now();
-                    setIsTracking(true);
+                if (isRoutineMode) {
+                    timerRef.current = setInterval(() => {
+                        const now = Math.floor((Date.now() - startTimeRef.current) / 1000);
+                        setElapsedTime(now);
+                        if (now >= presetTargetTime) {
+                            handleStop();
+                        }
+                    }, 1000);
                 }
             }
+        }
+    };
+
+    const handleStop = async () => {
+        if (mediapipeRef.current && isTracking) {
+            mediapipeRef.current.unlockPerson();
+            if (timerRef.current) clearInterval(timerRef.current);
+
+            // คำนวณเวลาที่เล่น
+            const duration = Math.floor((Date.now() - startTimeRef.current) / 1000);
+
+            // สร้างข้อมูล session ใหม่ (mock data)
+            const balanceScore = Math.floor(Math.random() * 30) + 70; // 70-100 คะแนน
+            const newSession = {
+                id: Date.now(),
+                timestamp: new Date(),
+                duration: duration,
+                score: balanceScore,
+                stability: balanceScore >= 90 ? "ดีมาก" : balanceScore >= 80 ? "ดี" : "ปานกลาง",
+                note: "การทรงตัวอยู่ในเกณฑ์" + (balanceScore >= 80 ? "ดี" : "พอใช้")
+            };
+
+            setSessionHistory(prev => [newSession, ...prev]);
+            setIsTracking(false);
+
+            // Save to database
+            try {
+                const user = JSON.parse(localStorage.getItem("user") || "{}");
+                const data = {
+                    userId: user.id,
+                    therapyTypesId: 4, // Balance
+                    patientId: parseInt(patientId),
+                    score: balanceScore,
+                    time: duration,
+                    angle: mediapipeRef.current?.getAngle() || 0,
+                };
+                await addTherapyHistory(data);
+            } catch (error) {
+                console.error("Error saving balance history:", error);
+            }
+
+            // Auto transition for routine mode
+            if (isRoutineMode && onComplete) {
+                setTimeout(() => {
+                    onComplete({ count: balanceScore, time: duration });
+                }, 2000);
+            }
+        }
+    };
+
+    const handleToggleTracking = () => {
+        if (isTracking) {
+            handleStop();
+        } else {
+            handleStart();
         }
     };
 

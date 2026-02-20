@@ -6,7 +6,46 @@ export default function SelectMode() {
   const { patientId, categoryId } = useParams();
   const [modes, setModes] = useState([]);
 
+  // Mapping Category ชื่อใหม่
+  const categoryMapping = {
+    "arm-raise": "Active",
+    core: "Passive",
+    exercise: "Preset",
+  };
+
+  const activeModes = [
+    {
+      id: "shoulder-flexion",
+      title: "Shoulder Flexion (ยกแขนไปด้านหน้า)",
+      description: "ยกแขนขึ้นไปด้านหน้าให้สูงที่สุด \nเพื่อเพิ่มองศาการเคลื่อนไหว",
+      category: "active",
+      slug: "shoulder-flexion"
+    },
+    {
+      id: "shoulder-abduction",
+      title: "Shoulder Abduction (กางแขนออกด้านข้าง)",
+      description: "กางแขนออกไปด้านข้างให้สูงที่สุด \nเพื่อเพิ่มความแข็งแรงของหัวไหล่",
+      category: "active",
+      slug: "shoulder-abduction"
+    },
+    {
+      id: "elbow-rotation",
+      title: "Elbow Rotation (หมุนศอก)",
+      description: "งอศอกและหมุนแขนเข้า-ออก \nเพื่อเพิ่มความยืดหยุ่นของข้อศอก",
+      category: "active",
+      slug: "elbow-rotation"
+    }
+  ];
+
   useEffect(() => {
+    // Check if current category is "Active" (either by ID or mapped name)
+    const currentCategoryName = categoryMapping[categoryId] || categoryId;
+
+    if (currentCategoryName === "Active") {
+      setModes(activeModes);
+      return;
+    }
+
     getTherapyType()
       .then((res) => {
         const data = res.data;
@@ -27,7 +66,7 @@ export default function SelectMode() {
     <div className="w-full min-h-screen bg-[#F3FBFC]">
       <div className="w-full max-w-5xl mx-auto px-6 py-16">
         <h1 className="text-[36px] font-bold text-[#344054] mb-4 text-center">
-          โหมด: <span className="text-[#40C9D5]">{categoryId}</span>
+          โหมด: <span className="text-[#40C9D5]">{categoryMapping[categoryId] || categoryId}</span>
         </h1>
         <p className="text-[#7E8C94] text-[16px] font-medium text-center mb-12">
           เลือกโหมดการฝึกที่คุณต้องการ
