@@ -7,7 +7,9 @@ const logger = require("../logger");
 // Get all symptoms
 router.get("/symptom/list", async (req, res) => {
   try {
-    const symptoms = await prisma.symptoms.findMany();
+    const symptoms = await prisma.symptoms.findMany({
+      where: { deletedAt: null }
+    });
     return res.status(200).json(symptoms);
   } catch (error) {
     logger.error("Get symptoms error:", error);
@@ -22,8 +24,8 @@ router.get("/symptom/listBy/:id", async (req, res) => {
       logger.warn("Missing symptom ID");
       return res.status(400).json({ message: "Missing ID" });
     }
-    const symptom = await prisma.symptoms.findUnique({
-      where: { id: parseInt(id) },
+    const symptom = await prisma.symptoms.findFirst({
+      where: { id: parseInt(id), deletedAt: null },
     });
     logger.info(`Get symptom ID ${id} success`);
     return res.status(200).json(symptom);
@@ -43,7 +45,7 @@ router.post("/symptom/create", async (req, res) => {
 
     // Check for existing symptom
     const existingSymptom = await prisma.symptoms.findFirst({
-      where: { title: title },
+      where: { title: title, deletedAt: null },
     });
     if (existingSymptom) {
       return res.status(400).json({ message: "Symptom already exists" });
@@ -68,8 +70,8 @@ router.put("/symptom/update/:id", async (req, res) => {
       logger.warn("Missing symptom ID");
       return res.status(400).json({ message: "Symptom ID and title are required" });
     }
-    const symptom = await prisma.symptoms.findUnique({
-      where: { id: parseInt(id) },
+    const symptom = await prisma.symptoms.findFirst({
+      where: { id: parseInt(id), deletedAt: null },
     });
     if (!symptom) {
       logger.warn("Symptom not found");
@@ -99,8 +101,9 @@ router.delete("/symptom/delete/:id", async (req, res) => {
       logger.warn("Missing symptom ID");
       return res.status(400).json({ message: "Symptom ID is required" });
     }
-    const deleteSymptom = await prisma.symptoms.delete({
+    const deleteSymptom = await prisma.symptoms.update({
       where: { id: parseInt(id) },
+      data: { deletedAt: new Date() }
     });
     logger.info(`Delete symptom ID ${id} success`);
     return res

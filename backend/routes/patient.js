@@ -8,7 +8,7 @@ const { log } = require("winston");
 router.get("/patient/list", async (req, res) => {
   try {
     const { userId } = req.query;
-    const where = userId ? { userId: parseInt(userId) } : {};
+    const where = userId ? { userId: parseInt(userId), deletedAt: null } : { deletedAt: null };
     const patients = await prisma.patients.findMany({
       where: where,
       include: {
@@ -47,8 +47,8 @@ router.get("/patient/listBy/:id", async (req, res) => {
       logger.warn("Missing patient ID");
       return res.status(400).json({ message: "Missing ID" });
     }
-    const patient = await prisma.patients.findUnique({
-      where: { id: parseInt(id) },
+    const patient = await prisma.patients.findFirst({
+      where: { id: parseInt(id), deletedAt: null },
     });
     return res.status(200).json(patient);
   } catch (error) {
@@ -71,6 +71,7 @@ router.post("/patient/create", async (req, res) => {
         firstName: firstName,
         lastName: lastName,
         userId: userId,
+        deletedAt: null,
       },
     });
 
@@ -107,7 +108,7 @@ router.post("/patient/add-symptom", async (req, res) => {
 
     // 1. Check if patient exists
     const patient = await prisma.patients.findFirst({
-      where: { id: patientId },
+      where: { id: patientId, deletedAt: null },
     });
     if (!patient) return res.status(404).json({ message: "Patient not found" });
 
@@ -157,15 +158,15 @@ router.put("/patient/update/:id", async (req, res) => {
       logger.warn("Missing required fields");
       return res.status(400).json({ message: "ID and patient name are required" });
     }
-    const patient = await prisma.patients.findUnique({
-      where: { id: parseInt(id) },
+    const patient = await prisma.patients.findFirst({
+      where: { id: parseInt(id), deletedAt: null },
     });
     if (!patient) {
       logger.warn("Patient not found");
       return res.status(404).json({ message: "Patient not found" });
     }
     const existingPatient = await prisma.patients.findFirst({
-      where: { firstName: firstName, lastName: lastName },
+      where: { firstName: firstName, lastName: lastName, deletedAt: null },
     });
 
     if (existingPatient) {
@@ -196,15 +197,16 @@ router.delete("/patient/delete/:id", async (req, res) => {
       logger.warn("Missing patient ID");
       return res.status(400).json({ message: "Patient ID is required" });
     }
-    const patient = await prisma.patients.findUnique({
-      where: { id: parseInt(id) },
+    const patient = await prisma.patients.findFirst({
+      where: { id: parseInt(id), deletedAt: null },
     });
     if (!patient) {
       logger.warn("Patient not found");
       return res.status(404).json({ message: "Patient not found" });
     }
-    const deletePatient = await prisma.patients.delete({
+    const deletePatient = await prisma.patients.update({
       where: { id: parseInt(id) },
+      data: { deletedAt: new Date() },
     });
     logger.info(`Delete patient ID ${id} success`);
     return res
@@ -252,8 +254,8 @@ router.get("/patient/symptoms/:id", async (req, res) => {
       logger.warn("Missing patient ID");
       return res.status(400).json({ message: "Patient ID is required" });
     }
-    const patient = await prisma.patients.findUnique({
-      where: { id: parseInt(id) },
+    const patient = await prisma.patients.findFirst({
+      where: { id: parseInt(id), deletedAt: null },
     });
     if (!patient) {
       logger.warn("Patient not found");

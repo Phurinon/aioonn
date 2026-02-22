@@ -6,7 +6,9 @@ const logger = require("../logger");
 // Get all therapy types
 router.get("/therapy/list", async (req, res) => {
   try {
-    const therapyTypes = await prisma.therapyTypes.findMany();
+    const therapyTypes = await prisma.therapyTypes.findMany({
+      where: { deletedAt: null }
+    });
     return res.status(200).json(therapyTypes);
   } catch (error) {
     logger.error("Get therapy types failed:", error);
@@ -21,8 +23,8 @@ router.get("/therapy/listBy/:id", async (req, res) => {
       logger.warn("Missing therapy ID");
       return res.status(400).json({ message: "Therapy ID is required" });
     }
-    const therapyType = await prisma.therapyTypes.findUnique({
-      where: { id: parseInt(id) },
+    const therapyType = await prisma.therapyTypes.findFirst({
+      where: { id: parseInt(id), deletedAt: null },
     });
     if (!therapyType) {
       logger.warn("Therapy type not found");
@@ -47,7 +49,7 @@ router.post("/therapy/add-type", async (req, res) => {
     }
 
     const existingTherapy = await prisma.therapyTypes.findFirst({
-      where: { title: title },
+      where: { title: title, deletedAt: null },
     });
 
     if (existingTherapy) {
@@ -97,8 +99,9 @@ router.put("/therapy/update/:id", async (req, res) => {
 router.delete("/therapy/delete/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedTherapy = await prisma.therapyTypes.delete({
+    const deletedTherapy = await prisma.therapyTypes.update({
       where: { id: parseInt(id) },
+      data: { deletedAt: new Date() }
     });
     return res
       .status(200)
@@ -151,7 +154,9 @@ router.post("/therapy/history/create", async (req, res) => {
 
 router.get("/therapy/history/list", async (req, res) => {
   try {
-    const history = await prisma.therapyHistorys.findMany();
+    const history = await prisma.therapyHistorys.findMany({
+      where: { deletedAt: null }
+    });
     logger.info("Get all therapy history success");
     return res
       .status(200)
@@ -168,6 +173,7 @@ router.get("/therapy/history/listBy/:id", async (req, res) => {
     const history = await prisma.therapyHistorys.findMany({
       where: {
         patientId: parseInt(id),
+        deletedAt: null
       },
     });
     logger.info(`Get therapy history user id ${id} success`);
@@ -187,6 +193,7 @@ router.get("/therapy/history/user/:id", async (req, res) => {
     const history = await prisma.therapyHistorys.findMany({
       where: {
         userId: parseInt(id),
+        deletedAt: null
       },
       include: {
         patients: true,
@@ -210,8 +217,9 @@ router.get("/therapy/history/user/:id", async (req, res) => {
 router.delete("/therapy/history/delete/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedHistory = await prisma.therapyHistorys.delete({
+    const deletedHistory = await prisma.therapyHistorys.update({
       where: { id: parseInt(id) },
+      data: { deletedAt: new Date() }
     });
     return res
       .status(200)

@@ -8,7 +8,9 @@ const { auth, adminCheck } = require("../middleware/auth");
 // Get all users (Admin only)
 router.get("/user/list", auth, adminCheck, async (req, res) => {
   try {
-    const users = await prisma.users.findMany();
+    const users = await prisma.users.findMany({
+      where: { deletedAt: null }
+    });
     return res.status(200).json(users);
   } catch (error) {
     logger.error("Get all users error:", error);
@@ -23,8 +25,8 @@ router.get("/user/listBy/:id", auth, async (req, res) => {
       logger.warn(`Get user failed: Missing user ID`);
       return res.status(404).json({ message: "User ID is required" });
     }
-    const user = await prisma.users.findUnique({
-      where: { id: parseInt(id) },
+    const user = await prisma.users.findFirst({
+      where: { id: parseInt(id), deletedAt: null },
     });
     if (!user) {
       logger.warn("User not found");
@@ -46,8 +48,8 @@ router.put("/user/update/:id", auth, async (req, res) => {
       logger.warn("Missing user ID");
       return res.status(400).json({ message: "User ID is required" });
     }
-    const user = await prisma.users.findUnique({
-      where: { id: parseInt(id) },
+    const user = await prisma.users.findFirst({
+      where: { id: parseInt(id), deletedAt: null },
     });
     if (!user) {
       logger.warn("User not found");
@@ -75,15 +77,16 @@ router.delete("/user/delete/:id", auth, adminCheck, async (req, res) => {
       logger.warn("Missing user ID");
       return res.status(400).json({ message: "User ID is required" });
     }
-    const user = await prisma.users.findUnique({
-      where: { id: parseInt(id) },
+    const user = await prisma.users.findFirst({
+      where: { id: parseInt(id), deletedAt: null },
     });
     if (!user) {
       logger.warn("User not found");
       return res.status(404).json({ message: "User not found" });
     }
-    const deleteUser = await prisma.users.delete({
+    const deleteUser = await prisma.users.update({
       where: { id: parseInt(id) },
+      data: { deletedAt: new Date() }
     });
     logger.info(`Delete user ID ${id} success`);
     return res
