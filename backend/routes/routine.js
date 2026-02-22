@@ -4,7 +4,7 @@ const prisma = require("../config/prisma");
 const logger = require("../logger");
 
 // Create a new routine with steps
-router.post("/routines", async (req, res) => {
+router.post("/routines/create", async (req, res) => {
     try {
         const { userId, title, description, steps } = req.body;
 
@@ -100,10 +100,53 @@ router.get("/routines/:id", async (req, res) => {
     }
 });
 
-// Delete a routine (Soft delete)
-router.delete("/routines/:id", async (req, res) => {
+router.put("/routines/update/:id", async (req, res) => {
     try {
         const { id } = req.params;
+        const { title, description, steps } = req.body;
+
+        if (!title || !steps || !Array.isArray(steps)) {
+            return res.status(400).json({ message: "Missing required fields" });
+        }
+
+        const updatedRoutine = await prisma.routine.update({
+            where: { id: parseInt(id) },
+            data: {
+                title,
+                description: description || "",
+                steps: {
+                    deleteMany: {},
+                    create: steps.map((step, index) => ({
+                        therapyTypeId: parseInt(step.therapyTypeId),
+                        order: index,
+                        targetCount: step.targetCount ? parseInt(step.targetCount) : null,
+                        targetTime: step.targetTime ? parseInt(step.targetTime) : null,
+                        weight: step.weight ? parseFloat(step.weight) : null,
+                    })),
+                },
+            },
+            include: {
+                steps: true,
+            },
+        });
+
+        logger.info(`Routine updated: ${title} (ID: ${updatedRoutine.id})`);
+        return res.status(200).json(updatedRoutine);
+    } catch (error) {
+        logger.error("Update routine failed:", error);
+        return res.status(500).json({ message: "Server error" });
+    }
+})
+
+// Delete a routine (Soft delete)
+router.delete("/routines/delete/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Delete all associated steps first to prevent orphaned records taking up space / failing business logic
+        await prisma.routineStep.deleteMany({
+            where: { routineId: parseInt(id) }
+        });
 
         // We can do a soft delete or hard delete. Given the schema has deletedAt, let's do soft delete.
         const deletedRoutine = await prisma.routine.update({
