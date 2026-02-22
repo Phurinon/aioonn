@@ -26,6 +26,7 @@ const Mediapipe = forwardRef(function Mediapipe(
   const canvasRef = useRef(null);
   const [currentAngle, setCurrentAngle] = useState(null);
   const [trackingStatus, setTrackingStatus] = useState("waiting"); // "waiting", "pending", "locked"
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
 
   // นับจำนวนครั้งที่ยกแขน
   const [armRaiseCount, setArmRaiseCount] = useState(0);
@@ -140,15 +141,27 @@ const Mediapipe = forwardRef(function Mediapipe(
 
     pose.onResults(onResults);
 
-    const camera = new Camera(videoRef.current, {
-      onFrame: async () => {
-        await pose.send({ image: videoRef.current });
-      },
-      width: width,
-      height: height,
-    });
+    let camera = null;
+    let isMounted = true;
 
-    camera.start();
+    // Wait for Pose WASM module to initialize before starting Camera
+    pose.initialize().then(() => {
+      if (!isMounted) return;
+      setIsModelLoaded(true);
+
+      camera = new Camera(videoRef.current, {
+        onFrame: async () => {
+          if (videoRef.current && isMounted) {
+            await pose.send({ image: videoRef.current });
+          }
+        },
+        width: width,
+        height: height,
+      });
+      camera.start();
+    }).catch(err => {
+      console.error("Failed to initialize Mediapipe Pose", err);
+    });
 
     function onResults(results) {
       const canvasCtx = canvasRef.current.getContext("2d");
@@ -438,8 +451,14 @@ const Mediapipe = forwardRef(function Mediapipe(
     }
 
     return () => {
-      camera.stop();
+      isMounted = false;
+      if (camera) {
+        camera.stop();
+      }
       pose.close();
+
+      // Clear window.Module to fix WASM 'Aborted' error on rapid remounts
+      window.Module = undefined;
     };
   }, [mode, isLocked, checkTargetPerson, getLockedBoundingBox, lockPerson]);
 
@@ -456,6 +475,46 @@ const Mediapipe = forwardRef(function Mediapipe(
         position: "relative",
       }}
     >
+      {/* Loading Overlay */}
+      {!isModelLoaded && (
+        <div
+          style={{
+            position: "absolute",
+            zIndex: 50,
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.8)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "white",
+          }}
+        >
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              border: "4px solid white",
+              borderTopColor: "transparent",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+              marginBottom: "16px",
+            }}
+          ></div>
+          <span style={{ fontSize: "18px", fontWeight: "bold" }}>
+            กำลังเตรียมระบบ และเปิดกล้อง...
+          </span>
+          <style>
+            {`
+              @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+              }
+            `}
+          </style>
+        </div>
+      )}
+
       {/* Tracking Status Badge - แสดงเมื่อ lock/pending */}
       {(trackingStatus === "locked" || trackingStatus === "pending") && (
         <div
