@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { deleteRoutine, getRoutineByUserId } from "../../Functions/routine";
 
-const API_URL = import.meta.env.VITE_API_URL;
 
 export default function RoutineList() {
     const { patientId } = useParams();
@@ -16,8 +15,8 @@ export default function RoutineList() {
                 const user = JSON.parse(localStorage.getItem("user") || "{}");
                 if (!user.id) return;
 
-                const response = await axios.get(`${API_URL}/routines/user/${user.id}`);
-                setRoutines(response.data);
+                const response = await getRoutineByUserId(user.id)
+                setRoutines(response);
             } catch (error) {
                 console.error("Error fetching routines:", error);
             } finally {
@@ -32,7 +31,7 @@ export default function RoutineList() {
         if (!window.confirm("คุณต้องการลบรูทีนนี้ใช่หรือไม่?")) return;
 
         try {
-            await axios.delete(`${API_URL}/routines/${id}`);
+            await deleteRoutine(id);
             setRoutines(routines.filter(r => r.id !== id));
         } catch (error) {
             console.error("Error deleting routine:", error);

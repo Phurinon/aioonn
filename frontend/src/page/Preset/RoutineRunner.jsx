@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { getRoutineById } from "../../Functions/routine";
 
 // Import all exercise components
 import ShoulderFlexion from "../Active/ShoulderFlexion";
@@ -10,8 +11,6 @@ import Balance from "../Passive/Balance";
 import Standing from "../Passive/Standing";
 import MusleTraining from "./MusleTraining";
 import Stretching from "./Stretching";
-
-const API_URL = import.meta.env.VITE_API_URL;
 
 export default function RoutineRunner() {
     const { patientId, routineId } = useParams();
@@ -25,10 +24,10 @@ export default function RoutineRunner() {
     useEffect(() => {
         const fetchRoutine = async () => {
             try {
-                const response = await axios.get(`${API_URL}/routines/${routineId}`);
+                const response = await getRoutineById(routineId)
                 // Sort steps by order
-                const sortedSteps = response.data.steps.sort((a, b) => a.order - b.order);
-                setRoutine({ ...response.data, steps: sortedSteps });
+                const sortedSteps = response.steps.sort((a, b) => a.order - b.order);
+                setRoutine({ ...response, steps: sortedSteps });
                 setLoading(false);
             } catch (err) {
                 console.error("Error fetching routine:", err);

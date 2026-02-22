@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
-
-const API_URL = import.meta.env.VITE_API_URL;
+import { createRoutine, updateRoutine, getRoutineById } from "../../Functions/routine";
+import { getTherapyType } from "../../Functions/therapy";
 
 export default function RoutineBuilder() {
     const { patientId, routineId } = useParams();
@@ -17,7 +16,7 @@ export default function RoutineBuilder() {
         // Fetch available therapies for selection
         const fetchTherapies = async () => {
             try {
-                const response = await axios.get(`${API_URL}/therapy/list`);
+                const response = await getTherapyType()
                 // Filter out "Preset" types to avoid circular routines? 
                 // Actually, we probably only want Active/Passive types as steps.
                 const filtered = response.data.filter(t => t.category !== "exercise");
@@ -31,8 +30,8 @@ export default function RoutineBuilder() {
             if (routineId) {
                 setLoading(true);
                 try {
-                    const response = await axios.get(`${API_URL}/routines/${routineId}`);
-                    const { title, description, steps } = response.data;
+                    const response = await getRoutineById(routineId)
+                    const { title, description, steps } = response;
                     setTitle(title);
                     setDescription(description);
                     setSteps(steps.map(s => ({
@@ -91,12 +90,9 @@ export default function RoutineBuilder() {
 
         try {
             if (routineId) {
-                // Logic for update would go here if we implemented PUT /api/routines/:id
-                // For now, let's just implement create and assume update is similar or just re-create.
-                // Actually, let's just handle create for this demo.
-                await axios.post(`${API_URL}/routines`, data);
+                await updateRoutine(routineId, data);
             } else {
-                await axios.post(`${API_URL}/routines`, data);
+                await createRoutine(data);
             }
             navigate(`/activity/${patientId}/routine/list`, { replace: true });
         } catch (error) {
