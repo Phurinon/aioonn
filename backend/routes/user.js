@@ -5,6 +5,11 @@ const logger = require("../logger");
 
 const { auth, adminCheck } = require("../middleware/auth");
 
+// Verify Admin Role Endpoint
+router.get("/user/verify-admin", auth, adminCheck, async (req, res) => {
+  return res.status(200).json({ message: "Admin verified ok" });
+});
+
 // Get all users (Admin only)
 router.get("/user/list", auth, adminCheck, async (req, res) => {
   try {
