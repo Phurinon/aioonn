@@ -29,3 +29,17 @@ export const login = async (data) => {
     throw error;
   }
 };
+
+export const changePassword = async (data) => {
+  try {
+    const response = await axios.put(`${API_URL}/auth/change-password`, data, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return response;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+};

@@ -14,6 +14,8 @@ import {
   CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 import { updateUser } from "../Functions/user";
+import { login, changePassword } from "../Functions/auth";
+import Swal from "sweetalert2";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -32,7 +34,7 @@ export default function Profile() {
   // State สำหรับ Modal เปลี่ยนรหัสผ่าน
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordStep, setPasswordStep] = useState(1); // 1 = ยืนยันตัวตน, 2 = ตั้งรหัสใหม่
-  const [verifyUsername, setVerifyUsername] = useState("");
+  const [verifyUsername, setVerifyUsername] = useState(user.username || "");
   const [verifyPassword, setVerifyPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -95,7 +97,7 @@ export default function Profile() {
   const openPasswordModal = () => {
     setIsPasswordModalOpen(true);
     setPasswordStep(1);
-    setVerifyUsername("");
+    setVerifyUsername(user.username || "");
     setVerifyPassword("");
     setNewPassword("");
     setConfirmNewPassword("");
@@ -105,7 +107,7 @@ export default function Profile() {
   const closePasswordModal = () => {
     setIsPasswordModalOpen(false);
     setPasswordStep(1);
-    setVerifyUsername("");
+    setVerifyUsername(user.username || "");
     setVerifyPassword("");
     setNewPassword("");
     setConfirmNewPassword("");
@@ -115,17 +117,81 @@ export default function Profile() {
   };
 
   // Handle ยืนยันตัวตน (Step 1)
-  const handleVerifyIdentity = () => {
-    // TODO: ตรวจสอบ username และ password กับ database ภายหลัง
-    // ตอนนี้กดยืนยันได้เลย
-    setPasswordStep(2);
+  const handleVerifyIdentity = async () => {
+    try {
+      if (!verifyUsername || !verifyPassword) {
+        Swal.fire({
+          icon: "warning",
+          title: "แจ้งเตือน",
+          text: "กรุณากรอกไอดีผู้ใช้และรหัสผ่านปัจจุบัน",
+          confirmButtonColor: "#40C9D5"
+        });
+        return;
+      }
+      
+      const response = await login({
+        username: verifyUsername,
+        password: verifyPassword
+      });
+
+      if (response.data && response.data.token) {
+        setPasswordStep(2);
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "ข้อผิดพลาด",
+          text: "รหัสผ่านปัจจุบันไม่ถูกต้อง",
+          confirmButtonColor: "#40C9D5"
+        });
+      }
+    } catch (error) {
+       console.error("Verify identity error:", error);
+       Swal.fire({
+         icon: "error",
+         title: "ข้อผิดพลาด",
+         text: error.response?.data?.message || "รหัสผ่านปัจจุบันไม่ถูกต้อง",
+         confirmButtonColor: "#40C9D5"
+       });
+    }
   };
 
   // Handle เปลี่ยนรหัสผ่าน (Step 2)
-  const handleChangePassword = () => {
-    // TODO: บันทึกรหัสผ่านใหม่ลง database ภายหลัง
-    // ตอนนี้กดยืนยันแล้วปิด modal ได้เลย
-    closePasswordModal();
+  const handleChangePassword = async () => {
+    if (newPassword !== confirmNewPassword) {
+      Swal.fire({
+        icon: "warning",
+        title: "แจ้งเตือน",
+        text: "รหัสผ่านใหม่ไม่ตรงกัน",
+        confirmButtonColor: "#40C9D5"
+      });
+      return;
+    }
+
+    try {
+      const response = await changePassword({
+        username: verifyUsername,
+        oldPassword: verifyPassword,
+        newPassword: newPassword
+      });
+
+      if (response.data) {
+        Swal.fire({
+          icon: "success",
+          title: "สำเร็จ",
+          text: "เปลี่ยนรหัสผ่านสำเร็จ",
+          confirmButtonColor: "#40C9D5"
+        });
+        closePasswordModal();
+      }
+    } catch (error) {
+      console.error("Change password error:", error);
+       Swal.fire({
+         icon: "error",
+         title: "ข้อผิดพลาด",
+         text: error.response?.data?.message || "เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน",
+         confirmButtonColor: "#40C9D5"
+       });
+    }
   };
 
   // ตรวจสอบว่ารหัสผ่านใหม่ตรงกัน
@@ -145,44 +211,6 @@ export default function Profile() {
             จัดการข้อมูลส่วนตัวของคุณ
           </p>
         </div>
-
-        {/* Profile Image Section */}
-        {/* <div className="flex flex-col items-center mb-8">
-          <div className="relative group"> */}
-        {/* Profile Image Container */}
-        {/* <div className="w-32 h-32 rounded-full overflow-hidden ring-4 ring-[#40C9D5]/30 ring-offset-4 bg-[#F3FBFC] flex items-center justify-center">
-              {profileImage ? (
-                <img
-                  src={profileImage}
-                  alt="Profile"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <UserCircleIcon className="w-24 h-24 text-[#40C9D5]" />
-              )}
-            </div>
-
-            {/* Camera Button Overlay */}
-        {/* <button
-              onClick={() => fileInputRef.current?.click()}
-              className="absolute bottom-1 right-1 w-10 h-10 bg-gradient-to-r from-[#40C9D5] to-[#2BA8B4] rounded-full flex items-center justify-center shadow-lg shadow-[#40C9D5]/30 hover:shadow-xl hover:scale-105 transition-all"
-            >
-              <CameraIcon className="w-5 h-5 text-white" />
-            </button> */}
-
-        {/* Hidden File Input */}
-        {/* <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="hidden"
-            />
-          </div>
-          <p className="text-[#7E8C94] text-sm mt-4">
-            คลิกที่ไอคอนกล้องเพื่อเปลี่ยนรูปโปรไฟล์
-          </p>
-        </div> */}
 
         {/* Divider */}
         <div className="h-px bg-gray-200 mb-6"></div>
@@ -332,7 +360,8 @@ export default function Profile() {
                     value={verifyUsername}
                     onChange={(e) => setVerifyUsername(e.target.value)}
                     placeholder="ไอดีผู้ใช้"
-                    className="w-full pl-12 pr-4 py-4 bg-[#F8F9FA] border border-gray-100 rounded-xl text-[#344054] placeholder-[#ABB7C2] focus:outline-none focus:border-[#40C9D5] focus:ring-2 focus:ring-[#40C9D5]/20 transition-all text-[15px] font-medium"
+                    disabled
+                    className="w-full pl-12 pr-4 py-4 bg-[#F8F9FA] border border-gray-100 rounded-xl text-[#344054] placeholder-[#ABB7C2] focus:outline-none transition-all text-[15px] font-medium opacity-70 cursor-not-allowed"
                   />
                 </div>
 

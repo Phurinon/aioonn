@@ -188,7 +188,51 @@ router.get(
       })
     );
     res.redirect(`${frontendUrl}?token=${token}&user=${userData}`);
+});
+
+// Change Password Endpoint
+router.put("/auth/change-password", async (req, res) => {
+  try {
+    const { username, oldPassword, newPassword } = req.body;
+
+    // Basic validation
+    if (!username || !oldPassword || !newPassword) {
+      return res.status(400).json({ message: "Username, old password, and new password are required" });
+    }
+
+    // Find user by username
+    const user = await prisma.users.findFirst({
+      where: { username: username },
+    });
+
+    if (!user) {
+      logger.warn(`Change password failed: Invalid username ${username}`);
+      return res.status(400).json({ message: "Invalid username" });
+    }
+
+    // Compare old password
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      logger.warn(`Change password failed: Incorrect old password for ${username}`);
+      return res.status(400).json({ message: "Incorrect old password" });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedNewPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update password in database
+    await prisma.users.update({
+      where: { id: user.id },
+      data: { password: hashedNewPassword },
+    });
+
+    logger.info(`Change password successful: ${username}`);
+    return res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    logger.error("Change password failed:", error);
+    return res.status(500).json({ message: "Server error" });
   }
-);
+});
 
 module.exports = router;
