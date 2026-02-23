@@ -1,4 +1,7 @@
-import { createBrowserRouter } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { createBrowserRouter, Navigate } from "react-router-dom";
+import Swal from "sweetalert2";
+import { verifyAdmin } from "../Functions/user";
 import Layout from "../layouts/default.jsx";
 import ProtectedRoute from "./ProtectedRoute";
 import ActivityLayout from "../layouts/ActivityLayout.jsx";
@@ -21,6 +24,51 @@ import DailyRomTesting from "../page/DailyRomTesting.jsx";
 import RoutineList from "../page/Preset/RoutineList.jsx";
 import RoutineBuilder from "../page/Preset/RoutineBuilder.jsx";
 import RoutineRunner from "../page/Preset/RoutineRunner.jsx";
+// import AdminLayout from "../layouts/AdminLayout.jsx";
+import AdminDashboard from "../page/Admin/AdminDashboard.jsx";
+import UserManagement from "../page/Admin/UserManagement.jsx";
+import PatientManagement from "../page/Admin/PatientManagement.jsx";
+import TherapyManagement from "../page/Admin/TherapyManagement.jsx";
+
+// Role-based Route Guard component (Backend verification)
+const AdminRoute = ({ children }) => {
+  const [isAuthorized, setIsAuthorized] = useState(null);
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const response = await verifyAdmin();
+        if (response && response.status === 200) {
+          setIsAuthorized(true);
+        } else {
+          setIsAuthorized(false);
+        }
+      } catch (error) {
+        setIsAuthorized(false);
+      }
+    };
+    
+    checkAdmin();
+  }, []);
+
+  if (isAuthorized === null) {
+    return <div className="min-h-screen flex items-center justify-center bg-[#F3FBFC]">กำลังตรวจสอบสิทธิ์...</div>;
+  }
+
+  if (!isAuthorized) {
+    setTimeout(() => {
+      Swal.fire({
+        icon: "error",
+        title: "ไม่มีสิทธิ์เข้าถึง",
+        text: "หน้านี้สงวนไว้สำหรับผู้ดูแลระบบ (Admin) เท่านั้น",
+        confirmButtonColor: "#40C9D5"
+      });
+    }, 100);
+    return <Navigate to="/" replace />;
+  }
+  
+  return children;
+};
 
 // สร้าง routes configuration ที่สามารถ reuse ได้
 const routes = [
@@ -63,14 +111,14 @@ const routes = [
             element: <ElbowRotation />,
           },
           // หน้า Activity - ทดสอบการทรงตัว (แกนกลางลำตัว)
-          { path: "activity/:patientId/core/balance", element: <Balance /> },
+          { path: "activity/:patientId/passive/balance", element: <Balance /> },
           // หน้า Activity - ปรับท่ายืน (แกนกลางลำตัว)
-          { path: "activity/:patientId/core/posture", element: <Standing /> },
+          { path: "activity/:patientId/passive/posture", element: <Standing /> },
           // หน้า Activity - เสริมสร้างกล้ามเนื้อ (การออกกำลังกาย)
-          {
-            path: "activity/:patientId/exercise/strength",
-            element: <MusleTraining />,
-          },
+          // {
+          //   path: "activity/:patientId/exercise/strength",
+          //   element: <MusleTraining />,
+          // },
           // Routine Flow
           {
             path: "activity/:patientId/routine/list",
@@ -110,6 +158,28 @@ const routes = [
         element: <Summary />,
       },
     ],
+  },
+  
+  // Admin Routes (Protected explicitly by check logic inside AdminRoute wrapper & layout)
+  {
+      path: "/admin",
+      element: <ProtectedRoute />,
+      children: [
+          {
+              path: "",
+              element: (
+                  <AdminRoute>
+                      <Layout />
+                  </AdminRoute>
+              ),
+              children: [
+                  { index: true, element: <AdminDashboard /> },
+                  { path: "users", element: <UserManagement /> },
+                  { path: "patients", element: <PatientManagement /> },
+                  { path: "therapy", element: <TherapyManagement /> },
+              ]
+          }
+      ]
   },
 
   // Public Routes
