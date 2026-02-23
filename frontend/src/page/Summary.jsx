@@ -141,19 +141,19 @@ function Summary() {
             <div className="p-6 text-start font-bold bg-blue-100 rounded-2xl shadow-sm">
               <div className="text-xl mb-2">ยกแขนด้านหน้า</div>
               <div className="text-center text-3xl font-extrabold text-green-600 mt-2">
-                ดีขึ้น
+                ...
               </div>
             </div>
             <div className="p-6 text-start font-bold bg-green-100 rounded-2xl shadow-sm">
               <div className="text-xl mb-2">ยกแขนด้านข้าง</div>
               <div className="text-center text-3xl font-extrabold text-green-600 mt-2">
-                ดีขึ้น
+                ...
               </div>
             </div>
             <div className="p-6 text-start font-bold bg-yellow-100 rounded-2xl shadow-sm">
               <div className="text-xl mb-2">หมุนศอก</div>
               <div className="text-center text-3xl font-extrabold mt-2">
-                คงที่
+                ...
               </div>
             </div>
           </div>
