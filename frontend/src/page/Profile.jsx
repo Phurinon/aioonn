@@ -281,6 +281,16 @@ export default function Profile() {
           ← กลับหน้าหลัก
         </button>
 
+        {/* Admin Dashboard Button */}
+        {user.role === "admin" && (
+          <button
+            onClick={() => navigate("/admin")}
+            className="w-full py-4 mb-4 bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-semibold text-[16px] rounded-2xl shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2"
+          >
+            ไปหน้าจัดการระบบ (Admin)
+          </button>
+        )}
+
         {/* Logout Button */}
         <button
           onClick={openLogoutModal}
