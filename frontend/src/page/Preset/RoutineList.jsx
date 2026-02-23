@@ -28,20 +28,31 @@ export default function RoutineList() {
     }, []);
 
     const handleDelete = async (id) => {
-        if (!window.confirm("คุณต้องการลบรูทีนนี้ใช่หรือไม่?")) return;
-
-        try {
-            await deleteRoutine(id);
-            setRoutines(routines.filter(r => r.id !== id));
-        } catch (error) {
-            console.error("Error deleting routine:", error);
-            Swal.fire({
-                icon: 'error',
-                title: 'ข้อผิดพลาด',
-                text: 'เกิดข้อผิดพลาดในการลบ',
-                confirmButtonColor: '#40C9D5'
-            });
-        }
+        // if (!window.confirm("คุณต้องการลบรูทีนนี้ใช่หรือไม่?")) return;
+        Swal.fire({
+            icon: 'warning',
+            title: 'คุณต้องการลบรูทีนนี้ใช่หรือไม่?',
+            showCancelButton: true,
+            confirmButtonColor: '#40C9D5',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'ใช่',
+            cancelButtonText: 'ไม่'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                try {
+                    deleteRoutine(id);
+                    setRoutines(routines.filter(r => r.id !== id));
+                } catch (error) {
+                    console.error("Error deleting routine:", error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'ข้อผิดพลาด',
+                        text: 'เกิดข้อผิดพลาดในการลบ',
+                        confirmButtonColor: '#40C9D5'
+                    });
+                }
+            }
+        })
     };
 
     return (
