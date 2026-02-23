@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import Mediapipe from "../../components/Mediapipe";
-import { addTherapyHistory } from "../../Functions/therapy";
+import { addTherapyHistory, getTherapyType } from "../../Functions/therapy";
 import ExerciseHistoryModal from "../../components/ExerciseHistoryModal";
 import usePatientLevelThreshold from "../../hooks/usePatientLevelThreshold";
 
@@ -72,6 +72,20 @@ export default function ShoulderAbduction({
     // Session history state
     const [sessionHistory, setSessionHistory] = useState([]);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+
+    // Dynamic therapy type ID
+    const [therapyId, setTherapyId] = useState(null);
+
+    useEffect(() => {
+        getTherapyType()
+            .then(res => {
+                if (res.data) {
+                    const mode = res.data.find(m => m.slug === 'shoulder-abduction');
+                    if (mode) setTherapyId(mode.id);
+                }
+            })
+            .catch(err => console.error("Error fetching therapy type:", err));
+    }, []);
 
     // Format time for display (MM:SS)
     const formatTime = (seconds) => {
@@ -211,7 +225,7 @@ export default function ShoulderAbduction({
             const user = JSON.parse(localStorage.getItem("user") || "{}");
             const data = {
                 userId: user.id,
-                therapyTypesId: 2,
+                therapyTypesId: therapyId,
                 patientId: parseInt(patientId),
                 score: count,
                 time: usedTime + 1,

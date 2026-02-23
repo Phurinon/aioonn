@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { getTherapyType } from "../Functions/therapy";
 
 export default function SelectCategory() {
   const { patientId } = useParams();
   const navigate = useNavigate();
-  const [categories, setCategories] = useState([]);
+  
+  // Mock data for categories
+  const categories = ["active", "passive", "preset"];
 
   // Check for Daily ROM Test requirement
   useEffect(() => {
@@ -20,28 +21,10 @@ export default function SelectCategory() {
 
   // Mapping Category ชื่อใหม่
   const categoryMapping = {
-    "arm-raise": "Active",
-    core: "Passive",
-    exercise: "Preset",
+    active: "Active",
+    passive: "Passive",
+    preset: "Preset"
   };
-
-  useEffect(() => {
-    getTherapyType()
-      .then((res) => {
-        const data = res.data;
-        if (data && Array.isArray(data)) {
-          // Extract unique categories
-          const uniqueCategories = [
-            ...new Set(data.map((item) => item.category)),
-          ].filter(Boolean); // Remove null/undefined
-
-          setCategories(uniqueCategories);
-        }
-      })
-      .catch((err) => {
-        console.error("Error fetching categories:", err);
-      });
-  }, []);
 
   return (
     <div className="w-full min-h-screen bg-[#F3FBFC]">
@@ -66,7 +49,7 @@ export default function SelectCategory() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
           {categories.map((category) => (
             <Link
-              to={category === "exercise"
+              to={category === "preset"
                 ? `/activity/${patientId}/routine/list`
                 : `/select-mode/${patientId}/${category}`
               }

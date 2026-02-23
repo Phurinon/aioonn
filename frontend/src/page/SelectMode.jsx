@@ -8,51 +8,23 @@ export default function SelectMode() {
 
   // Mapping Category ชื่อใหม่
   const categoryMapping = {
-    "arm-raise": "Active",
-    core: "Passive",
-    exercise: "Preset",
+    active: "Active",
+    passive: "Passive",
+    preset: "Preset",
   };
 
-  const activeModes = [
-    {
-      id: "shoulder-flexion",
-      title: "Shoulder Flexion (ยกแขนไปด้านหน้า)",
-      description: "ยกแขนขึ้นไปด้านหน้าให้สูงที่สุด \nเพื่อเพิ่มองศาการเคลื่อนไหว",
-      category: "active",
-      slug: "shoulder-flexion"
-    },
-    {
-      id: "shoulder-abduction",
-      title: "Shoulder Abduction (กางแขนออกด้านข้าง)",
-      description: "กางแขนออกไปด้านข้างให้สูงที่สุด \nเพื่อเพิ่มความแข็งแรงของหัวไหล่",
-      category: "active",
-      slug: "shoulder-abduction"
-    },
-    {
-      id: "elbow-rotation",
-      title: "Elbow Rotation (หมุนศอก)",
-      description: "งอศอกและหมุนแขนเข้า-ออก \nเพื่อเพิ่มความยืดหยุ่นของข้อศอก",
-      category: "active",
-      slug: "elbow-rotation"
-    }
-  ];
-
   useEffect(() => {
-    // Check if current category is "Active" (either by ID or mapped name)
-    const currentCategoryName = categoryMapping[categoryId] || categoryId;
-
-    if (currentCategoryName === "Active") {
-      setModes(activeModes);
-      return;
-    }
-
     getTherapyType()
       .then((res) => {
         const data = res.data;
         if (data && Array.isArray(data)) {
-          // Filter modes by category
+          // Filter modes by category (support both raw ID and mapped name)
+          const currentCategoryName = categoryMapping[categoryId] || categoryId;
           const filteredModes = data.filter(
-            (item) => item.category === categoryId
+            (item) =>
+              item.category === categoryId ||
+              (item.category && item.category.toLowerCase() === currentCategoryName.toLowerCase()) ||
+              (item.category && item.category.toLowerCase() === categoryId.toLowerCase())
           );
           setModes(filteredModes);
         }

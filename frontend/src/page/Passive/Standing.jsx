@@ -1,6 +1,6 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import Mediapipe from "../../components/Mediapipe";
-import { addTherapyHistory } from "../../Functions/therapy";
+import { addTherapyHistory, getTherapyType } from "../../Functions/therapy";
 import ExerciseHistoryModal from "../../components/ExerciseHistoryModal";
 import { useParams } from "react-router-dom";
 
@@ -20,6 +20,20 @@ export default function Standing({
     // Session history state
     const [sessionHistory, setSessionHistory] = useState([]);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+
+    // Dynamic therapy type ID
+    const [therapyId, setTherapyId] = useState(null);
+
+    useEffect(() => {
+        getTherapyType()
+            .then(res => {
+                if (res.data) {
+                    const mode = res.data.find(m => m.slug === 'posture');
+                    if (mode) setTherapyId(mode.id);
+                }
+            })
+            .catch(err => console.error("Error fetching therapy type:", err));
+    }, []);
 
     // Effects for routine mode
     useEffect(() => {
@@ -83,7 +97,7 @@ export default function Standing({
                 const user = JSON.parse(localStorage.getItem("user") || "{}");
                 const data = {
                     userId: user.id,
-                    therapyTypesId: 5, // Standing
+                    therapyTypesId: therapyId,
                     patientId: parseInt(patientId),
                     score: postureScore,
                     time: duration,
