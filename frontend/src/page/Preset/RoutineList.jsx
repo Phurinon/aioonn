@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { deleteRoutine, getRoutineByUserId } from "../../Functions/routine";
-
+import Swal from "sweetalert2";
 
 export default function RoutineList() {
     const { patientId } = useParams();
@@ -35,7 +35,12 @@ export default function RoutineList() {
             setRoutines(routines.filter(r => r.id !== id));
         } catch (error) {
             console.error("Error deleting routine:", error);
-            alert("เกิดข้อผิดพลาดในการลบ");
+            Swal.fire({
+                icon: 'error',
+                title: 'ข้อผิดพลาด',
+                text: 'เกิดข้อผิดพลาดในการลบ',
+                confirmButtonColor: '#40C9D5'
+            });
         }
     };
 

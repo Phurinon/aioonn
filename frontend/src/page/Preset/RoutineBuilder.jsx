@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { createRoutine, updateRoutine, getRoutineById } from "../../Functions/routine";
 import { getTherapyType } from "../../Functions/therapy";
+import Swal from "sweetalert2";
 
 export default function RoutineBuilder() {
     const { patientId, routineId } = useParams();
@@ -77,8 +78,24 @@ export default function RoutineBuilder() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!title) return alert("กรุณาระบุชื่อรูทีน");
-        if (steps.length === 0) return alert("กรุณาเพิ่มอย่างน้อย 1 ท่า");
+        if (!title) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'แจ้งเตือน',
+                text: 'กรุณาระบุชื่อรูทีน',
+                confirmButtonColor: '#40C9D5'
+            });
+            return;
+        }
+        if (steps.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'แจ้งเตือน',
+                text: 'กรุณาเพิ่มอย่างน้อย 1 ท่า',
+                confirmButtonColor: '#40C9D5'
+            });
+            return;
+        }
 
         const user = JSON.parse(localStorage.getItem("user") || "{}");
         const data = {
@@ -97,7 +114,12 @@ export default function RoutineBuilder() {
             navigate(`/activity/${patientId}/routine/list`, { replace: true });
         } catch (error) {
             console.error("Error saving routine:", error);
-            alert("เกิดข้อผิดพลาดในการบันทึก");
+            Swal.fire({
+                icon: 'error',
+                title: 'ข้อผิดพลาด',
+                text: 'เกิดข้อผิดพลาดในการบันทึก',
+                confirmButtonColor: '#40C9D5'
+            });
         }
     };
 
