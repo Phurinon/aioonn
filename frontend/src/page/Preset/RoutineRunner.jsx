@@ -78,15 +78,15 @@ export default function RoutineRunner() {
     const currentStep = routine.steps[currentStepIndex];
     if (!currentStep) return null;
 
-    // Map therapyTypeId to component
-    // Assuming IDs mapped in fix_therapy_names.js:
-    // 1: Shoulder Flexion
-    // 2: Shoulder Abduction
-    // 3: Elbow Rotation
-    // 4: Balance
-    // 5: Standing
-    // 6: Muscle Training
-    // 7: Stretching
+    // Map therapyType slug to component
+    // slugs from database:
+    // "shoulder-flexion": Shoulder Flexion
+    // "shoulder-abduction": Shoulder Abduction
+    // "elbow-rotation": Elbow Rotation
+    // "balance": Balance
+    // "posture": Standing
+    // "muscle-training": Muscle Training (or similar, if preset)
+    // "stretching": Stretching (or similar, if preset)
 
     const renderExercise = () => {
         const props = {
@@ -94,23 +94,24 @@ export default function RoutineRunner() {
             isRoutineMode: true,
             autoStart: currentStepIndex > 0,
             presetTargetCount: currentStep.targetCount,
-            presetTimerDuration: currentStep.targetTime,
-            presetTargetTime: currentStep.targetTime,
             onComplete: handleStepComplete
         };
 
-        switch (parseInt(currentStep.therapyTypeId)) {
-            case 1: return <ShoulderFlexion {...props} />;
-            case 2: return <ShoulderAbduction {...props} />;
-            case 3: return <ElbowRotation {...props} />;
-            case 4: return <Balance {...props} />;
-            case 5: return <Standing {...props} />;
-            case 6: return <MusleTraining {...props} />;
-            case 7: return <Stretching {...props} />;
+        const slug = currentStep.therapyType?.slug;
+
+        switch (slug) {
+            case "shoulder-flexion": return <ShoulderFlexion {...props} />;
+            case "shoulder-abduction": return <ShoulderAbduction {...props} />;
+            case "elbow-rotation": return <ElbowRotation {...props} />;
+            case "balance": return <Balance {...props} />;
+            case "posture": return <Standing {...props} />;
+            // Future additions for preset category if needed:
+            // case "muscle-training": return <MusleTraining {...props} />;
+            // case "stretching": return <Stretching {...props} />;
             default:
                 return (
                     <div className="flex flex-col items-center justify-center h-full">
-                        <p className="text-red-500 mb-4">ไม่พบท่าทางการฝึก (ID: {currentStep.therapyTypeId})</p>
+                        <p className="text-red-500 mb-4">ไม่พบท่าทางการฝึก (Slug: {slug || currentStep.therapyTypeId})</p>
                         <button onClick={handleStepComplete} className="px-6 py-2 bg-[#40C9D5] text-white rounded-lg">ข้ามท่านี้</button>
                     </div>
                 );

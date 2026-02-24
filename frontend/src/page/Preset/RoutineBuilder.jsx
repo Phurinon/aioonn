@@ -38,7 +38,6 @@ export default function RoutineBuilder() {
                     setSteps(steps.map(s => ({
                         therapyTypeId: s.therapyTypeId,
                         targetCount: s.targetCount || 10,
-                        targetTime: s.targetTime || 60,
                         weight: s.weight || 0
                     })));
                 } catch (error) {
@@ -59,7 +58,6 @@ export default function RoutineBuilder() {
         setSteps([...steps, {
             therapyTypeId: firstTherapyId,
             targetCount: 10,
-            targetTime: 60,
             weight: 0
         }]);
     };
@@ -180,7 +178,7 @@ export default function RoutineBuilder() {
                                         {index + 1}
                                     </div>
 
-                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div className="md:col-span-1">
                                             <label className="block text-xs font-bold text-[#7E8C94] uppercase mb-1">เลือกท่า</label>
                                             <select
@@ -213,16 +211,6 @@ export default function RoutineBuilder() {
                                                 type="number"
                                                 value={step.targetCount}
                                                 onChange={(e) => updateStep(index, "targetCount", e.target.value)}
-                                                className="w-full bg-gray-50 px-3 py-2 rounded-lg text-sm border-none focus:ring-2 focus:ring-[#40C9D5]"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-xs font-bold text-[#7E8C94] uppercase mb-1">เวลาเป้าหมาย (วินาที)</label>
-                                            <input
-                                                type="number"
-                                                value={step.targetTime}
-                                                onChange={(e) => updateStep(index, "targetTime", e.target.value)}
                                                 className="w-full bg-gray-50 px-3 py-2 rounded-lg text-sm border-none focus:ring-2 focus:ring-[#40C9D5]"
                                             />
                                         </div>

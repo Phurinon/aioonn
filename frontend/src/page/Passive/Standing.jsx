@@ -7,7 +7,6 @@ import { useParams } from "react-router-dom";
 export default function Standing({
     isRoutineMode = false,
     autoStart = true,
-    presetTargetTime = 0,
     onComplete = null
 }) {
     const { patientId } = useParams();
@@ -61,9 +60,6 @@ export default function Standing({
                     timerRef.current = setInterval(() => {
                         const now = Math.floor((Date.now() - startTimeRef.current) / 1000);
                         setElapsedTime(now);
-                        if (now >= presetTargetTime) {
-                            handleStop();
-                        }
                     }, 1000);
                 }
             }

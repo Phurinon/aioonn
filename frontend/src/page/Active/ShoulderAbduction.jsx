@@ -9,7 +9,6 @@ export default function ShoulderAbduction({
     isRoutineMode = false,
     autoStart = true,
     presetTargetCount = 0,
-    presetTimerDuration = 0,
     onComplete = null
 }) {
     const { patientId } = useParams();
@@ -29,13 +28,10 @@ export default function ShoulderAbduction({
 
     // Configuration states
     const [isConfigured, setIsConfigured] = useState(isRoutineMode);
-    const [timerDuration, setTimerDuration] = useState(presetTimerDuration); // in seconds
     const [targetCount, setTargetCount] = useState(presetTargetCount);
 
     // Modal states
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [modalTimeMinutes, setModalTimeMinutes] = useState(""); // นาที
-    const [modalTimeSeconds, setModalTimeSeconds] = useState(""); // วินาที (0-59)
     const [modalTargetCount, setModalTargetCount] = useState("");
 
     // Running states
@@ -43,15 +39,16 @@ export default function ShoulderAbduction({
     const [isCountdown, setIsCountdown] = useState(false);
     const [countdownValue, setCountdownValue] = useState(3);
     const [isRunning, setIsRunning] = useState(false);
-    const [timeLeft, setTimeLeft] = useState(presetTimerDuration);
+    
+    // Time tracking counts UP
+    const [timeElapsed, setTimeElapsed] = useState(0); 
     const [currentCount, setCurrentCount] = useState(0);
 
     // Effects for routine mode
     useEffect(() => {
         if (isRoutineMode) {
-            setTimerDuration(presetTimerDuration);
             setTargetCount(presetTargetCount);
-            setTimeLeft(presetTimerDuration);
+            setTimeElapsed(0);
             setIsConfigured(true);
 
             // Start automatically in routine mode if requested
@@ -62,7 +59,7 @@ export default function ShoulderAbduction({
                 return () => clearTimeout(timer);
             }
         }
-    }, [isRoutineMode, autoStart, presetTargetCount, presetTimerDuration]);
+    }, [isRoutineMode, autoStart, presetTargetCount]);
 
     // Finish states
     const [isFinished, setIsFinished] = useState(false);
@@ -98,8 +95,6 @@ export default function ShoulderAbduction({
 
     // Handle opening the settings modal
     const handleOpenModal = () => {
-        setModalTimeMinutes("");
-        setModalTimeSeconds("");
         setModalTargetCount("");
         setIsModalOpen(true);
     };
@@ -111,18 +106,14 @@ export default function ShoulderAbduction({
 
     // Handle confirming settings
     const handleConfirmSettings = () => {
-        const minutes = parseInt(modalTimeMinutes) || 0;
-        const seconds = parseInt(modalTimeSeconds) || 0;
         const count = parseInt(modalTargetCount) || 0;
 
-        const totalSeconds = minutes * 60 + seconds;
-        if (totalSeconds < 1 || count <= 0) {
+        if (count <= 0) {
             return;
         }
 
-        setTimerDuration(totalSeconds);
         setTargetCount(count);
-        setTimeLeft(totalSeconds);
+        setTimeElapsed(0);
         setCurrentCount(0);
         setIsConfigured(true);
         setIsFinished(false);
@@ -130,30 +121,12 @@ export default function ShoulderAbduction({
         setIsModalOpen(false);
     };
 
-    // Handle time input changes - remove leading zeros
-    const handleMinutesChange = (e) => {
-        const value = e.target.value;
-        const cleaned = value.replace(/^0+/, "") || "";
-        if (cleaned.length <= 2) {
-            setModalTimeMinutes(cleaned);
-        }
-    };
-
-    const handleSecondsChange = (e) => {
-        const value = e.target.value;
-        const cleaned = value.replace(/^0+/, "") || "";
-        const num = parseInt(cleaned) || 0;
-        if (num <= 59 && cleaned.length <= 2) {
-            setModalTimeSeconds(cleaned);
-        }
-    };
-
     // Handle start button
     const handleStart = () => {
         if (isRunning) return;
 
         setCurrentCount(0);
-        setTimeLeft(timerDuration);
+        setTimeElapsed(0);
         isProcessingFinish.current = false;
 
         if (mediapipeRef.current) {
@@ -189,7 +162,7 @@ export default function ShoulderAbduction({
         };
     }, [isCountdown, countdownValue]);
 
-    // Handle finishing the exercise ...
+    // Handle finishing the exercise
     const handleFinish = useCallback(async () => {
         if (isProcessingFinish.current) return;
         isProcessingFinish.current = true;
@@ -198,7 +171,7 @@ export default function ShoulderAbduction({
         setIsTracking(false);
 
         const count = mediapipeRef.current?.getArmRaiseCount() || currentCount;
-        const usedTime = timerDuration - timeLeft;
+        const usedTime = timeElapsed;
 
         setFinalCount(count);
         setFinalTime(usedTime);
@@ -210,12 +183,11 @@ export default function ShoulderAbduction({
         const newSession = {
             id: Date.now(),
             timestamp: new Date(),
-            duration: usedTime + 1,
-            targetDuration: timerDuration,
+            duration: usedTime,
             count: count,
             targetCount: targetCount,
             success: count >= targetCount,
-            note: count >= targetCount ? "สำเร็จตามเป้าหมาย!" : "พยายามต่อไป",
+            note: count >= targetCount ? "สำเร็จตามเป้าหมาย!" : "สิ้นสุดการฝึก",
         };
         setSessionHistory((prev) => [newSession, ...prev]);
 
@@ -228,7 +200,7 @@ export default function ShoulderAbduction({
                 therapyTypesId: therapyId,
                 patientId: parseInt(patientId),
                 score: count,
-                time: usedTime + 1,
+                // time: usedTime,
                 angle: mediapipeRef.current?.getAngle() || 0,
             };
             console.log("Saving therapy history:", data);
@@ -240,23 +212,16 @@ export default function ShoulderAbduction({
         // Auto transition for routine mode
         if (isRoutineMode && onComplete) {
             setTimeout(() => {
-                onComplete({ count, time: usedTime + 1 });
+                onComplete({ count, time: usedTime });
             }, 2000); // 2 second delay to see the result
         }
-    }, [currentCount, timerDuration, timeLeft, targetCount, patientId, isRoutineMode, onComplete]);
+    }, [currentCount, timeElapsed, targetCount, patientId, isRoutineMode, onComplete, therapyId]);
 
-    // Timer countdown effect
+    // Time elapsed effect
     useEffect(() => {
-        if (isRunning && timeLeft > 0) {
+        if (isRunning) {
             timerIntervalRef.current = setInterval(() => {
-                setTimeLeft((prev) => {
-                    if (prev <= 1) {
-                        clearInterval(timerIntervalRef.current);
-                        handleFinish();
-                        return 0;
-                    }
-                    return prev - 1;
-                });
+                setTimeElapsed((prev) => prev + 1);
 
                 if (mediapipeRef.current) {
                     const count = mediapipeRef.current.getArmRaiseCount();
@@ -275,7 +240,7 @@ export default function ShoulderAbduction({
                 clearInterval(timerIntervalRef.current);
             }
         };
-    }, [isRunning, timeLeft, targetCount, handleFinish]);
+    }, [isRunning, targetCount, handleFinish]);
 
     // Handle stop button
     const handleStop = () => {
@@ -289,7 +254,7 @@ export default function ShoulderAbduction({
     const handleCloseResult = () => {
         setIsFinished(false);
         setCurrentCount(0);
-        setTimeLeft(timerDuration);
+        setTimeElapsed(0);
     };
 
     return (
@@ -312,14 +277,9 @@ export default function ShoulderAbduction({
                                 ⏱️
                             </div>
                             <div>
-                                <div className="text-sm text-[#7E8C94]">เวลาที่เหลือ</div>
-                                <div
-                                    className={`text-2xl font-bold ${timeLeft <= 10 && isRunning
-                                        ? "text-red-500 animate-pulse"
-                                        : "text-[#344054]"
-                                        }`}
-                                >
-                                    {formatTime(timeLeft)}
+                                <div className="text-sm text-[#7E8C94]">เวลาที่ใช้</div>
+                                <div className="text-2xl font-bold text-[#344054]">
+                                    {formatTime(timeElapsed)}
                                 </div>
                             </div>
                         </div>
@@ -370,10 +330,9 @@ export default function ShoulderAbduction({
                                         ⏱️
                                     </div>
                                     <div>
-                                        <div className="text-sm text-[#7E8C94]">เวลาที่ใช้</div>
+                                        <div className="text-sm text-[#7E8C94]">เวลาที่ใช้ทั้งหมด</div>
                                         <div className="text-xl font-bold text-[#344054]">
-                                            {formatTime(timerDuration - timeLeft)} /{" "}
-                                            {formatTime(timerDuration)}
+                                            {formatTime(finalTime)}
                                         </div>
                                     </div>
                                 </div>
@@ -432,47 +391,10 @@ export default function ShoulderAbduction({
                                 ⚙️
                             </div>
                             <h2 className="text-2xl font-bold text-[#344054]">
-                                ตั้งค่าการจับเวลา
+                                ตั้งเป้าหมาย
                             </h2>
                             <p className="text-[#7E8C94] mt-1">
-                                กำหนดเวลาและจำนวนครั้งเป้าหมาย
-                            </p>
-                        </div>
-
-                        <div className="mb-5">
-                            <label className="block text-sm font-medium text-[#344054] mb-3">
-                                เวลาที่ต้องการ
-                            </label>
-                            <div className="flex items-center justify-center gap-2">
-                                <input
-                                    type="number"
-                                    value={modalTimeMinutes}
-                                    onChange={handleMinutesChange}
-                                    placeholder="0"
-                                    className="w-20 px-4 py-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#40C9D5] focus:border-transparent text-2xl text-center font-bold"
-                                    min="0"
-                                    max="99"
-                                />
-                                <span className="text-lg font-medium text-[#7E8C94]">นาที</span>
-                                <span className="text-3xl font-bold text-[#344054]">:</span>
-                                <input
-                                    type="number"
-                                    value={modalTimeSeconds}
-                                    onChange={handleSecondsChange}
-                                    placeholder="0"
-                                    className="w-20 px-4 py-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#40C9D5] focus:border-transparent text-2xl text-center font-bold"
-                                    min="0"
-                                    max="59"
-                                />
-                                <span className="text-lg font-medium text-[#7E8C94]">
-                                    วินาที
-                                </span>
-                            </div>
-                            <p className="text-center text-sm text-[#7E8C94] mt-2">
-                                รวม:{" "}
-                                {(parseInt(modalTimeMinutes) || 0) * 60 +
-                                    (parseInt(modalTimeSeconds) || 0)}{" "}
-                                วินาที
+                                กำหนดจำนวนครั้งเป้าหมายสำหรับการฝึกนี้
                             </p>
                         </div>
 
@@ -499,10 +421,8 @@ export default function ShoulderAbduction({
                             </button>
                             <button
                                 onClick={handleConfirmSettings}
-                                disabled={
-                                    (!modalTimeMinutes && !modalTimeSeconds) || !modalTargetCount
-                                }
-                                className={`flex-1 py-3 font-semibold rounded-xl transition shadow-md ${(modalTimeMinutes || modalTimeSeconds) && modalTargetCount
+                                disabled={!modalTargetCount}
+                                className={`flex-1 py-3 font-semibold rounded-xl transition shadow-md ${modalTargetCount
                                     ? "bg-[#40C9D5] text-white hover:bg-[#2BA8B4]"
                                     : "bg-gray-200 text-gray-400 cursor-not-allowed"
                                     }`}
@@ -526,7 +446,7 @@ export default function ShoulderAbduction({
                                 }`}
                         >
                             <span className="text-lg">⚙️</span>
-                            ตั้งเวลา
+                            ตั้งเป้าหมาย
                         </button>
 
                         <div className="w-px h-10 bg-gray-200"></div>
@@ -547,7 +467,7 @@ export default function ShoulderAbduction({
                                 )}
                                 {!isTracking && isConfigured && (
                                     <span className="text-sm text-[#7E8C94]">
-                                        {formatTime(timerDuration)} • {targetCount} ครั้ง
+                                        เป้าหมาย: {targetCount} ครั้ง
                                     </span>
                                 )}
                                 {!isConfigured && (
