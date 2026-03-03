@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Mediapipe from '../components/Mediapipe';
 import { ChevronRightIcon } from '@heroicons/react/24/solid';
+import { getTherapyType, addTherapyHistory } from '../Functions/therapy';
+import Swal from 'sweetalert2';
 
 export default function DailyRomTesting() {
     const navigate = useNavigate();
@@ -19,57 +21,46 @@ export default function DailyRomTesting() {
         }
     }, [patientId, navigate]);
 
-    // Steps configuration
-    const steps = [
-        {
-            id: 1,
-            name: "Forward Flexion - Right",
-            title: "ยกแขนขวาไปด้านหน้า",
-            description: "ยกแขนขวาขึ้นไปด้านหน้าให้สูงที่สุดเท่าที่จะทำได้",
-            side: "Right",
-            action: "Flexion"
-        },
-        {
-            id: 2,
-            name: "Forward Flexion - Left",
-            title: "ยกแขนซ้ายไปด้านหน้า",
-            description: "ยกแขนซ้ายขึ้นไปด้านหน้าให้สูงที่สุดเท่าที่จะทำได้",
-            side: "Left",
-            action: "Flexion"
-        },
-        {
-            id: 3,
-            name: "Abduction - Right",
-            title: "กางแขนขวาออกด้านข้าง",
-            description: "กางแขนขวาออกไปด้านข้างให้สูงที่สุดเท่าที่จะทำได้",
-            side: "Right",
-            action: "Abduction"
-        },
-        {
-            id: 4,
-            name: "Abduction - Left",
-            title: "กางแขนซ้ายออกด้านข้าง",
-            description: "กางแขนซ้ายออกไปด้านข้างให้สูงที่สุดเท่าที่จะทำได้",
-            side: "Left",
-            action: "Abduction"
-        },
-        {
-            id: 5,
-            name: "External Rotation - Right",
-            title: "หมุนศอกขวา",
-            description: "ยกศอกขวาขึ้นระดับไหล่ ตั้งแขนขึ้น แล้วหมุนแขนไปด้านหลัง",
-            side: "Right",
-            action: "ExternalRotation"
-        },
-        {
-            id: 6,
-            name: "External Rotation - Left",
-            title: "หมุนศอกซ้าย",
-            description: "ยกศอกซ้ายขึ้นระดับไหล่ ตั้งแขนขึ้น แล้วหมุนแขนไปด้านหลัง",
-            side: "Left",
-            action: "ExternalRotation"
-        }
-    ];
+    // Steps state from DB
+    const [steps, setSteps] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchDailySteps = async () => {
+            try {
+                const response = await getTherapyType();
+                const dailyTherapies = response.data.filter(t => t.category === 'daily' || t.category === 'Daily');
+                
+                const mappedSteps = dailyTherapies.map((t) => {
+                    const slug = (t.slug || t.title || '').toLowerCase();
+                    let side = 'Right';
+                    if (slug.includes('left') || slug.includes('ซ้าย')) side = 'Left';
+                    
+                    let action = 'Flexion';
+                    if (slug.includes('abduction') || slug.includes('กาง')) action = 'Abduction';
+                    if (slug.includes('external') || slug.includes('หมุน')) action = 'ExternalRotation';
+
+                    return {
+                        id: t.id,
+                        name: t.title, // Use title from DB
+                        title: t.title,
+                        description: t.description || "",
+                        side,
+                        action
+                    };
+                });
+                
+                setSteps(mappedSteps);
+            } catch (error) {
+                console.error("Failed to fetch daily ROM therapies:", error);
+                setSteps([]);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchDailySteps();
+    }, []);
 
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
@@ -78,22 +69,27 @@ export default function DailyRomTesting() {
     const [timer, setTimer] = useState(0);
     const [results, setResults] = useState({});
     const [currentAngle, setCurrentAngle] = useState(0);
-    const [maxAngleForStep, setMaxAngleForStep] = useState(0);
+    const [recordedAnglesForStep, setRecordedAnglesForStep] = useState([]);
 
     // Refs for consistent access inside callbacks
     const statusRef = useRef(status);
-    const maxAngleRef = useRef(maxAngleForStep);
+    const recordedAnglesRef = useRef(recordedAnglesForStep);
     const currentStepIndexRef = useRef(currentStepIndex);
+    const stepsRef = useRef(steps);
 
     // Sync refs with state
     useEffect(() => { statusRef.current = status; }, [status]);
-    useEffect(() => { maxAngleRef.current = maxAngleForStep; }, [maxAngleForStep]);
+    useEffect(() => { recordedAnglesRef.current = recordedAnglesForStep; }, [recordedAnglesForStep]);
     useEffect(() => { currentStepIndexRef.current = currentStepIndex; }, [currentStepIndex]);
+    useEffect(() => { stepsRef.current = steps; }, [steps]);
 
     // Stable callback using Refs to avoid stale closures
     const handleAngleUpdate = useCallback((angles) => {
+        const currentSteps = stepsRef.current;
         const currentIndex = currentStepIndexRef.current;
-        const currentStep = steps[currentIndex];
+        const currentStep = currentSteps[currentIndex];
+
+        if (!currentStep) return;
 
         let angleToTrack = 0;
         let isConstraintMet = true;
@@ -134,11 +130,8 @@ export default function DailyRomTesting() {
         setCurrentAngle(roundedAngle);
 
         // Using Ref to check status ensures we always have the live value
-        if (statusRef.current === 'TESTING' && isConstraintMet) {
-            const currentMax = maxAngleRef.current;
-            if (roundedAngle > currentMax) {
-                setMaxAngleForStep(roundedAngle);
-            }
+        if (statusRef.current === 'TESTING' && isConstraintMet && roundedAngle > 0) {
+            setRecordedAnglesForStep(prev => [...prev, roundedAngle]);
         }
     }, []); // Empty dependencies = consistent reference across renders
 
@@ -153,27 +146,34 @@ export default function DailyRomTesting() {
         } else if (status === 'COUNTDOWN' && timer === 0) {
             clearInterval(interval);
             setStatus('TESTING');
-            setMaxAngleForStep(0);
+            setRecordedAnglesForStep([]);
         }
 
         return () => clearInterval(interval);
     }, [status, timer]);
 
+    const getAverageAngle = () => {
+        if (recordedAnglesForStep.length === 0) return 0;
+        const sum = recordedAnglesForStep.reduce((a, b) => a + b, 0);
+        return Math.round(sum / recordedAnglesForStep.length);
+    };
+
     const handleNextStep = () => {
         const currentStep = steps[currentStepIndex];
+        const averageAngle = getAverageAngle();
 
         setResults(prev => ({
             ...prev,
             [currentStep.id]: {
                 ...currentStep,
-                angle: maxAngleForStep
+                angle: averageAngle
             }
         }));
 
         if (currentStepIndex < steps.length - 1) {
             setCurrentStepIndex(prev => prev + 1);
             setCurrentAngle(0);
-            setMaxAngleForStep(0);
+            setRecordedAnglesForStep([]);
             setStatus('INSTRUCTION');
         } else {
             setStatus('COMPLETED');
@@ -186,15 +186,78 @@ export default function DailyRomTesting() {
         }
         setStatus('COUNTDOWN');
         setTimer(3);
-        setMaxAngleForStep(0);
+        setRecordedAnglesForStep([]);
     };
 
-    const finishTest = () => {
-        localStorage.setItem(`lastDailyRomTest_${patientId}`, Date.now().toString());
-        navigate(`/select-category/${patientId}`, { replace: true });
+    const finishTest = async () => {
+        try {
+            // Get user ID from localStorage or fallback to patientId
+            const userStr = localStorage.getItem("user");
+            const userId = userStr ? JSON.parse(userStr).id : patientId;
+            
+            // Post each recorded step angle to the database
+            const promises = Object.values(results).map(res => {
+                return addTherapyHistory({
+                    patientId: parseInt(patientId),
+                    userId: parseInt(userId),
+                    therapyTypesId: res.id,
+                    time: 0,
+                    score: 0,
+                    weight: 0,
+                    angle: res.angle || 0
+                });
+            });
+
+            await Promise.all(promises);
+            
+            localStorage.setItem(`lastDailyRomTest_${patientId}`, Date.now().toString());
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'บันทึกสำเร็จ',
+                text: 'บันทึกการทดสอบรายวันลงฐานข้อมูลเรียบร้อยแล้ว',
+                confirmButtonColor: '#40C9D5'
+            }).then(() => {
+                navigate(`/select-category/${patientId}`, { replace: true });
+            });
+            
+        } catch (error) {
+            console.error("Failed to save ROM test results:", error);
+            Swal.fire({
+                icon: 'error',
+                title: 'เกิดข้อผิดพลาด',
+                text: 'ไม่สามารถบันทึกข้อมูลได้',
+                confirmButtonColor: '#40C9D5'
+            });
+        }
     };
 
-    const currentStep = steps[currentStepIndex];
+    const currentStep = steps.length > 0 ? steps[currentStepIndex] : null;
+
+    if (isLoading) {
+        return (
+            <div className="w-full min-h-screen bg-black flex items-center justify-center">
+                <p className="text-white text-xl">กำลังโหลดข้อมูลการทดสอบ...</p>
+            </div>
+        );
+    }
+
+    if (steps.length === 0) {
+        return (
+            <div className="w-full min-h-screen bg-[#F3FBFC] flex items-center justify-center p-6">
+                <div className="bg-white rounded-3xl p-8 shadow-lg max-w-2xl w-full text-center">
+                    <h1 className="text-2xl font-bold text-[#344054] mb-4">ยังไม่มีท่าทดสอบ</h1>
+                    <p className="text-gray-500 mb-6">กรุณาเพิ่ม Therapy Type หมวดหมู่ "Daily" ในหน้าจัดการแอดมิน</p>
+                    <button
+                        onClick={() => navigate(`/select-category/${patientId}`, { replace: true })}
+                        className="bg-[#40C9D5] text-white px-8 py-3 rounded-full font-bold"
+                    >
+                        กลับ
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     if (status === 'COMPLETED') {
         return (
@@ -252,8 +315,8 @@ export default function DailyRomTesting() {
                         </div>
                         <div className="w-full h-px bg-gray-200 my-2"></div>
                         <div>
-                            <p className="text-xs text-gray-500 font-medium leading-tight">สูงสุด<br />ที่ทำได้</p>
-                            <p className="text-3xl font-bold text-[#344054] mt-1">{maxAngleForStep}°</p>
+                            <p className="text-xs text-gray-500 font-medium leading-tight">เฉลี่ย<br />ที่ทำได้</p>
+                            <p className="text-3xl font-bold text-[#344054] mt-1">{getAverageAngle()}°</p>
                         </div>
                     </div>
 
