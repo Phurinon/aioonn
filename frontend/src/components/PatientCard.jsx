@@ -63,9 +63,9 @@ export default function PatientCard({
                 <span className="font-semibold text-[#333E4D]">
                   {item.symptoms.title}
                 </span>
-                <span className="text-[#40C9D5] font-medium bg-[#E0F7FA] px-1.5 py-0.5 rounded">
+                {/* <span className="text-[#40C9D5] font-medium bg-[#E0F7FA] px-1.5 py-0.5 rounded">
                   Lv.{item.level}
-                </span>
+                </span> */}
               </div>
               <div className="text-[#7E8C94]">
                 ข้าง: {getSideLabel(item.armSide)}

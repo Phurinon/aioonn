@@ -100,9 +100,9 @@ router.post("/patient/create", async (req, res) => {
 // Record a patient's symptom level
 router.post("/patient/add-symptom", async (req, res) => {
   try {
-    const { patientId, symptomsId, level, armSide } = req.body;
+    const { patientId, symptomsId, armSide } = req.body;
 
-    if (!patientId || !symptomsId || !level || !armSide) {
+    if (!patientId || !symptomsId || !armSide) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
@@ -127,18 +127,16 @@ router.post("/patient/add-symptom", async (req, res) => {
         },
       },
       update: {
-        level: level,
         createdAt: new Date(), // Manually update for upsert? @updatedAt handles it usually
       },
       create: {
         patientId: patientId,
         symptomsId: symptomsId,
-        level: level,
         armSide: armSide,
       },
     });
     logger.info(
-      `Recorded symptom for patient ${patientId}: Symptom ${symptomsId}, Level ${level}`
+      `Recorded symptom for patient ${patientId}: Symptom ${symptomsId}, Armside ${armSide}`
     );
     return res
       .status(200)
