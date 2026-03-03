@@ -52,39 +52,76 @@ function Summary() {
 
         activeModes.forEach((mode) => {
           // Filter history for this specific mode
-          const modeHistory = targetHistory.filter(
-            (item) => item.therapyTypes && item.therapyTypes.slug === mode.slug
-          );
+          const modeHistory = targetHistory.filter((item) => {
+            const t = item.therapyTypes;
+            if (!t) return false;
+            // Matches Active Exercise
+            if (t.slug === mode.slug && t.category?.toLowerCase() !== 'daily') return true;
+             // Matches Daily Test
+            if (t.category?.toLowerCase() === 'daily') {
+              const s = (t.slug || t.title || '').toLowerCase();
+              let action = 'shoulder-flexion';
+              if (s.includes('abduction') || s.includes('กาง')) action = 'shoulder-abduction';
+              else if (s.includes('external') || s.includes('หมุน') || s.includes('rotation')) action = 'elbow-rotation';
+              
+              return action === mode.slug;
+            }
+            return false;
+          });
+
+          const groupedActiveByDate = {};
+          const groupedDailyByDate = {};
+
+          modeHistory.forEach((item) => {
+            if (!item.angle) return;
+            const isDaily = item.therapyTypes?.category?.toLowerCase() === 'daily';
+            const dateKey = new Date(item.createdAt).toISOString().split("T")[0];
+            const angle = Number(item.angle);
+            
+            if (isDaily) {
+                if (!groupedDailyByDate[dateKey]) groupedDailyByDate[dateKey] = angle;
+                else groupedDailyByDate[dateKey] = Math.max(groupedDailyByDate[dateKey], angle);
+            } else {
+                if (!groupedActiveByDate[dateKey]) groupedActiveByDate[dateKey] = angle;
+                else groupedActiveByDate[dateKey] = Math.max(groupedActiveByDate[dateKey], angle);
+            }
+          });
 
           // Calculate progress for left bar
           let progressText = "ไม่มีข้อมูล";
-          let currentMax = 0;
+          let currentActiveMax = 0;
+          let currentDailyMax = 0;
 
-          if (modeHistory.length > 0) {
-            const groupedByDate = {};
-            modeHistory.forEach((item) => {
-              if (!item.angle) return;
-              const dateKey = new Date(item.createdAt).toISOString().split("T")[0];
-              const angle = Number(item.angle);
-              if (!groupedByDate[dateKey]) groupedByDate[dateKey] = angle;
-              else groupedByDate[dateKey] = Math.max(groupedByDate[dateKey], angle);
-            });
+          const allDates = [...new Set([...Object.keys(groupedActiveByDate), ...Object.keys(groupedDailyByDate)])].sort();
+          if (allDates.length > 0) {
+            const latestDate = allDates[allDates.length - 1];
+            currentActiveMax = groupedActiveByDate[latestDate] || 0;
+            currentDailyMax = groupedDailyByDate[latestDate] || 0;
 
-            const dates = Object.keys(groupedByDate).sort();
-            if (dates.length > 0) {
-              currentMax = groupedByDate[dates[dates.length - 1]];
-              if (dates.length === 1) {
-                progressText = "กำลังเริ่มต้นฝึก";
-              } else {
-                const prevMax = groupedByDate[dates[dates.length - 2]];
-                if (currentMax > prevMax + 5) {
-                    progressText = "พัฒนาการดีขึ้นมาก 📈";
-                } else if (currentMax >= prevMax) {
-                    progressText = "พัฒนาการคงที่ ดีขึ้น 📈";
+            if (currentActiveMax > 0 && currentDailyMax > 0) {
+                if (currentActiveMax > currentDailyMax + 5) {
+                    progressText = `ฝึกได้ดีกว่าแบบทดสอบ (+${Math.round(currentActiveMax - currentDailyMax)}°) 🎉`;
+                } else if (currentActiveMax >= currentDailyMax) {
+                    progressText = `ฝึกได้ดีกว่าหรือเท่ากับแบบทดสอบ 👍`;
                 } else {
-                    progressText = "ควรฝึกเพิ่มเติม 📉";
+                    progressText = `ยังฝึกได้น้อยกว่าแบบทดสอบ (${Math.round(currentActiveMax - currentDailyMax)}°) 📉`;
                 }
-              }
+            } else if (currentActiveMax > 0 && currentDailyMax === 0) {
+                const datesActive = Object.keys(groupedActiveByDate).sort();
+                if (datesActive.length > 1) {
+                    const prevMax = groupedActiveByDate[datesActive[datesActive.length - 2]];
+                    if (currentActiveMax > prevMax + 5) {
+                        progressText = "พัฒนาการดีขึ้นมาก 📈";
+                    } else if (currentActiveMax >= prevMax) {
+                        progressText = "พัฒนาการคงที่ ดีขึ้น 📈";
+                    } else {
+                        progressText = "ควรฝึกเพิ่มเติม 📉";
+                    }
+                } else {
+                    progressText = "กำลังเริ่มต้นฝึก (ไม่มีผลทดสอบรายวัน)";
+                }
+            } else if (currentDailyMax > 0 && currentActiveMax === 0) {
+                progressText = "ทำแบบทดสอบแล้ว รอการฝึก 💪";
             }
           }
 
@@ -103,13 +140,14 @@ function Summary() {
 
             chartData = todayData.map((item, index) => {
               const d = new Date(item.createdAt);
+              const isDaily = item.therapyTypes?.category?.toLowerCase() === 'daily';
               return {
                 time: `${d.toLocaleTimeString("th-TH", {
                   hour: "2-digit",
                   minute: "2-digit",
                 })} (รอบ ${index + 1})`,
-                angle: item.angle ? Number(item.angle) : 0,
-                score: item.score ? Number(item.score) : 0,
+                activeAngle: isDaily ? null : (item.angle ? Number(item.angle) : 0),
+                dailyAngle: isDaily ? (item.angle ? Number(item.angle) : 0) : null,
               };
             });
           } else {
@@ -119,13 +157,19 @@ function Summary() {
               const d = new Date(item.createdAt);
               const dateKey = d.toISOString().split("T")[0];
               const angle = Number(item.angle);
+              const isDaily = item.therapyTypes?.category?.toLowerCase() === 'daily';
+
               if (!grouped[dateKey]) {
-                grouped[dateKey] = { rawDate: d, maxAngle: angle };
+                grouped[dateKey] = { rawDate: d, activeMaxAngle: null, dailyMaxAngle: null };
+              }
+              if (isDaily) {
+                grouped[dateKey].dailyMaxAngle = grouped[dateKey].dailyMaxAngle === null 
+                  ? angle 
+                  : Math.max(grouped[dateKey].dailyMaxAngle, angle);
               } else {
-                grouped[dateKey].maxAngle = Math.max(
-                  grouped[dateKey].maxAngle,
-                  angle
-                );
+                grouped[dateKey].activeMaxAngle = grouped[dateKey].activeMaxAngle === null 
+                  ? angle 
+                  : Math.max(grouped[dateKey].activeMaxAngle, angle);
               }
             });
             chartData = Object.values(grouped)
@@ -135,13 +179,15 @@ function Summary() {
                   day: "numeric",
                   month: "short",
                 }),
-                maxAngle: item.maxAngle,
+                activeMaxAngle: item.activeMaxAngle,
+                dailyMaxAngle: item.dailyMaxAngle,
               }));
           }
 
           newModeData[mode.slug] = {
             progressText,
-            currentMax,
+            currentActiveMax,
+            currentDailyMax,
             chartData,
           };
         });
@@ -179,11 +225,12 @@ function Summary() {
                 className={`p-6 text-start font-bold ${mode.color} rounded-2xl shadow-sm`}
               >
                 <div className="text-xl mb-2">{mode.title}</div>
-                {mData && mData.currentMax > 0 && (
-                  <div className="text-sm text-gray-700 mb-2">
-                    หมุนได้สูงสุดในวันล่าสุด: {Math.round(mData.currentMax)}°
-                  </div>
-                )}
+                <div className="text-sm text-gray-700 mb-1">
+                  แบบทดสอบรายวันล่าสุด: {mData && mData.currentDailyMax > 0 ? `${Math.round(mData.currentDailyMax)}°` : '-'}
+                </div>
+                <div className="text-sm text-gray-700 mb-2">
+                  การฝึกปกติล่าสุด: {mData && mData.currentActiveMax > 0 ? `${Math.round(mData.currentActiveMax)}°` : '-'}
+                </div>
                 <div
                   className={`text-center text-xl font-extrabold ${mode.text} mt-2`}
                 >
@@ -285,32 +332,50 @@ function Summary() {
                               <>
                                 <Line
                                   type="monotone"
-                                  dataKey="angle"
-                                  name="มุม (องศา)"
+                                  dataKey="activeAngle"
+                                  name="มุมจากการฝึก (องศา)"
                                   stroke={mode.stroke}
                                   strokeWidth={3}
                                   activeDot={{ r: 8 }}
                                   dot={{ r: 4, strokeWidth: 2 }}
+                                  connectNulls={true}
                                 />
-                                {/* <Line
+                                <Line
                                   type="monotone"
-                                  dataKey="score"
-                                  name="จำนวน (ครั้ง)"
-                                  stroke="#F59E0B"
+                                  dataKey="dailyAngle"
+                                  name="มุมจากการทดสอบ (องศา)"
+                                  stroke="#FF4560"
                                   strokeWidth={3}
-                                  dot={{ r: 4, strokeWidth: 2 }}
-                                /> */}
+                                  strokeDasharray="5 5"
+                                  activeDot={{ r: 8 }}
+                                  dot={{ r: 6, strokeWidth: 2 }}
+                                  connectNulls={true}
+                                />
                               </>
                             ) : (
-                              <Line
-                                type="monotone"
-                                dataKey="maxAngle"
-                                name="มุมสูงสุด (องศา)"
-                                stroke={mode.stroke}
-                                strokeWidth={3}
-                                activeDot={{ r: 8 }}
-                                dot={{ r: 4, strokeWidth: 2 }}
-                              />
+                              <>
+                                <Line
+                                  type="monotone"
+                                  dataKey="activeMaxAngle"
+                                  name="ฝึกปกติสูงสุด (องศา)"
+                                  stroke={mode.stroke}
+                                  strokeWidth={3}
+                                  activeDot={{ r: 8 }}
+                                  dot={{ r: 4, strokeWidth: 2 }}
+                                  connectNulls={true}
+                                />
+                                <Line
+                                  type="monotone"
+                                  dataKey="dailyMaxAngle"
+                                  name="ทดสอบสูงสุด (องศา)"
+                                  stroke="#FF4560"
+                                  strokeWidth={3}
+                                  strokeDasharray="5 5"
+                                  activeDot={{ r: 8 }}
+                                  dot={{ r: 6, strokeWidth: 2 }}
+                                  connectNulls={true}
+                                />
+                              </>
                             )}
                           </LineChart>
                         </ResponsiveContainer>
