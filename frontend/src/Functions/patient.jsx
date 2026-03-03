@@ -98,3 +98,19 @@ export const getPatientSymptoms = async (id) => {
     throw error;
   }
 };
+
+export const deletePatient = async (id) => {
+  try {
+    const response = await axios.delete(`${API_URL}/patient/delete/${id}`, {
+      ...getAuthHeaders(),
+      headers: {
+        ...getAuthHeaders().headers,
+        "Content-Type": "application/json",
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+};

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { getPatients } from "../../Functions/patient";
+import { getPatients, deletePatient } from "../../Functions/patient";
 import Swal from "sweetalert2";
-import { UsersIcon, CheckCircleIcon, QueueListIcon } from "@heroicons/react/24/outline";
+import { UsersIcon, CheckCircleIcon, QueueListIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 export default function PatientManagement() {
   const [patients, setPatients] = useState([]);
@@ -28,6 +28,40 @@ export default function PatientManagement() {
     fetchPatients();
   }, []);
 
+  const handleDelete = async (id, name) => {
+    const result = await Swal.fire({
+      icon: "warning",
+      title: "ยืนยันการลบ",
+      text: `คุณต้องการลบข้อมูลผู้ป่วย "${name}" ใช่หรือไม่?`,
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#40C9D5",
+      confirmButtonText: "ลบ",
+      cancelButtonText: "ยกเลิก",
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await deletePatient(id);
+        setPatients(patients.filter((p) => p.id !== id));
+        Swal.fire({
+          icon: "success",
+          title: "สำเร็จ",
+          text: "ลบข้อมูลผู้ป่วยสำเร็จ",
+          confirmButtonColor: "#40C9D5",
+        });
+      } catch (error) {
+        console.error("Error deleting patient:", error);
+        Swal.fire({
+          icon: "error",
+          title: "เกิดข้อผิดพลาด",
+          text: "ไม่สามารถลบข้อมูลผู้ป่วยได้",
+          confirmButtonColor: "#40C9D5",
+        });
+      }
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-full">กำลังโหลด...</div>;
   }
@@ -52,6 +86,7 @@ export default function PatientManagement() {
               <th className="py-4 px-6 font-semibold">ผู้ดูแล (Hospital ID)</th>
               <th className="py-4 px-6 font-semibold">วันที่บันทึก (ล่าสุด)</th>
               <th className="py-4 px-6 font-semibold text-center">ประวัติ/อาการ</th>
+              <th className="py-4 px-6 font-semibold text-center">จัดการ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -89,12 +124,21 @@ export default function PatientManagement() {
                         {patient.therapyHistories?.length || 0}
                       </div>
                     </td>
+                    <td className="py-4 px-6 flex justify-center gap-2">
+                      <button
+                        onClick={() => handleDelete(patient.id, `${patient.firstName} ${patient.lastName}`)}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="ลบ"
+                      >
+                        <TrashIcon className="w-5 h-5" />
+                      </button>
+                    </td>
                   </tr>
                 );
               })
             ) : (
               <tr>
-                <td colSpan="5" className="py-8 text-center text-gray-500">
+                <td colSpan="6" className="py-8 text-center text-gray-500">
                   ไม่พบข้อมูลผู้ป่วย
                 </td>
               </tr>
