@@ -291,6 +291,7 @@ export default function TherapyManagement() {
                     <option value="active">Active</option>
                     <option value="passive">Passive</option>
                     <option value="preset">Preset</option>
+                    <option value="daily">Daily</option>
                   </select>
                 </div>
               </div>
