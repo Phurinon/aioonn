@@ -60,10 +60,12 @@ function Summary() {
              // Matches Daily Test
             if (t.category?.toLowerCase() === 'daily') {
               const s = (t.slug || t.title || '').toLowerCase();
-              let action = 'shoulder-flexion';
+              let action = '';
+              if (s.includes('flexion') || s.includes('ยกแขน') && s.includes('หน้า')) action = 'shoulder-flexion';
               if (s.includes('abduction') || s.includes('กาง')) action = 'shoulder-abduction';
               else if (s.includes('external') || s.includes('หมุน') || s.includes('rotation')) action = 'elbow-rotation';
               
+              if (!action) action = 'shoulder-flexion'; // fallback
               return action === mode.slug;
             }
             return false;
@@ -127,6 +129,7 @@ function Summary() {
 
           // Format data for chart
           let chartData = [];
+          
           if (viewMode === "today") {
             const today = new Date();
             const todayData = modeHistory.filter((item) => {
@@ -138,20 +141,45 @@ function Summary() {
               );
             }).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
-            chartData = todayData.map((item, index) => {
-              const d = new Date(item.createdAt);
-              const isDaily = item.therapyTypes?.category?.toLowerCase() === 'daily';
-              return {
-                time: `${d.toLocaleTimeString("th-TH", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })} (รอบ ${index + 1})`,
-                activeAngle: isDaily ? null : (item.angle ? Number(item.angle) : 0),
-                dailyAngle: isDaily ? (item.angle ? Number(item.angle) : 0) : null,
-              };
+            // Find daily max for today to make a flat line
+            let tDailyMax = null;
+            todayData.forEach(item => {
+                if (item.therapyTypes?.category?.toLowerCase() === 'daily' && item.angle) {
+                    const angle = Number(item.angle);
+                    tDailyMax = tDailyMax === null ? angle : Math.max(tDailyMax, angle);
+                }
             });
+
+            // Extract just the active exercises to plot over time
+            const activeData = todayData.filter(item => item.therapyTypes?.category?.toLowerCase() !== 'daily');
+
+            if (activeData.length === 0 && tDailyMax !== null) {
+                // If only daily test exists today, draw two spanning points
+                chartData = [
+                    { time: "เริ่ม", activeAngle: null, dailyAngle: tDailyMax },
+                    { time: "จบ", activeAngle: null, dailyAngle: tDailyMax }
+                ];
+            } else {
+                chartData = activeData.map((item, index) => {
+                  const d = new Date(item.createdAt);
+                  return {
+                    time: `${d.toLocaleTimeString("th-TH", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })} (รอบ ${index + 1})`,
+                    activeAngle: item.angle ? Number(item.angle) : 0,
+                    dailyAngle: tDailyMax, // Flat line across all points
+                  };
+                });
+            }
+
           } else {
             const grouped = {};
+            let aDailyMax = null; // Global max for all time, or max per day based on preference. Let's do max per day for now, or global? Flat line usually means a global max across the view, but let's do max per day first so it forms a daily step progression or flat.
+            
+            // Let's find global daily max first if we want a single straight line, but user said "like test line" which implies it might step up per day. 
+            // We'll track per day active max, and per day daily max.
+            
             modeHistory.forEach((item) => {
               if (!item.angle) return;
               const d = new Date(item.createdAt);
@@ -172,16 +200,23 @@ function Summary() {
                   : Math.max(grouped[dateKey].activeMaxAngle, angle);
               }
             });
-            chartData = Object.values(grouped)
-              .sort((a, b) => a.rawDate - b.rawDate)
-              .map((item) => ({
-                date: item.rawDate.toLocaleDateString("th-TH", {
-                  day: "numeric",
-                  month: "short",
-                }),
-                activeMaxAngle: item.activeMaxAngle,
-                dailyMaxAngle: item.dailyMaxAngle,
-              }));
+            
+            // Propagate daily max forward so it acts as a flat continuous line even on days without a test
+            let lastKnownDaily = null;
+            const sortedKeys = Object.values(grouped).sort((a, b) => a.rawDate - b.rawDate);
+            
+            chartData = sortedKeys.map((item) => {
+                if (item.dailyMaxAngle !== null) lastKnownDaily = item.dailyMaxAngle;
+                
+                return {
+                    date: item.rawDate.toLocaleDateString("th-TH", {
+                      day: "numeric",
+                      month: "short",
+                    }),
+                    activeMaxAngle: item.activeMaxAngle,
+                    dailyMaxAngle: lastKnownDaily, // Use last known to make it a continuous target line
+                };
+            });
           }
 
           newModeData[mode.slug] = {
@@ -205,11 +240,19 @@ function Summary() {
 
   return (
     <div className="bg-[#F3FBFC] min-h-screen pb-10">
-      <div className="flex justify-center items-center">
-        <div className="p-3 text-2xl font-bold mt-10 border-2 border-black rounded-full shadow-md bg-white">
-          {viewMode === "today"
-            ? "สรุปผลการออกกำลังกายวันนี้"
-            : "สรุปผลการออกกำลังกายทั้งหมด"}
+      <div className="container mx-auto px-10 pt-10 flex items-center relative">
+        <button
+          onClick={() => navigate(-1)}
+          className="absolute left-10 p-3 rounded-full hover:bg-gray-100 shadow-md transition-all border-2 border-black flex items-center justify-center bg-white z-10 hover:scale-105"
+        >
+          <ArrowLeftIcon className="w-6 h-6 text-black" strokeWidth={2.5} />
+        </button>
+        <div className="w-full flex justify-center items-center">
+          <div className="p-3 px-6 text-2xl font-bold border-2 border-black rounded-full shadow-md bg-white">
+            {viewMode === "today"
+              ? "สรุปผลการออกกำลังกายวันนี้"
+              : "สรุปผลการออกกำลังกายทั้งหมด"}
+          </div>
         </div>
       </div>
 
@@ -335,7 +378,7 @@ function Summary() {
                                   dataKey="activeAngle"
                                   name="มุมจากการฝึก (องศา)"
                                   stroke={mode.stroke}
-                                  strokeWidth={3}
+                                  strokeWidth={4}
                                   activeDot={{ r: 8 }}
                                   dot={{ r: 4, strokeWidth: 2 }}
                                   connectNulls={true}
@@ -345,10 +388,10 @@ function Summary() {
                                   dataKey="dailyAngle"
                                   name="มุมจากการทดสอบ (องศา)"
                                   stroke="#FF4560"
-                                  strokeWidth={3}
+                                  strokeWidth={4}
                                   strokeDasharray="5 5"
-                                  activeDot={{ r: 8 }}
-                                  dot={{ r: 6, strokeWidth: 2 }}
+                                  activeDot={false}
+                                  dot={false}
                                   connectNulls={true}
                                 />
                               </>
@@ -359,7 +402,7 @@ function Summary() {
                                   dataKey="activeMaxAngle"
                                   name="ฝึกปกติสูงสุด (องศา)"
                                   stroke={mode.stroke}
-                                  strokeWidth={3}
+                                  strokeWidth={4}
                                   activeDot={{ r: 8 }}
                                   dot={{ r: 4, strokeWidth: 2 }}
                                   connectNulls={true}
@@ -369,10 +412,10 @@ function Summary() {
                                   dataKey="dailyMaxAngle"
                                   name="ทดสอบสูงสุด (องศา)"
                                   stroke="#FF4560"
-                                  strokeWidth={3}
+                                  strokeWidth={4}
                                   strokeDasharray="5 5"
-                                  activeDot={{ r: 8 }}
-                                  dot={{ r: 6, strokeWidth: 2 }}
+                                  activeDot={false}
+                                  dot={false}
                                   connectNulls={true}
                                 />
                               </>
