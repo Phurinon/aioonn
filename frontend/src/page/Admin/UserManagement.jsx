@@ -114,29 +114,31 @@ export default function UserManagement() {
                       {user.role}
                     </span>
                   </td>
-                  <td className="py-4 px-6 flex justify-center gap-2">
-                    <button
-                      onClick={() =>
-                        Swal.fire({
-                          icon: "info",
-                          title: "ข้อมูล",
-                          text: `สร้างเมื่อ: ${new Date(
-                            user.createdAt
-                          ).toLocaleString("th-TH")}`,
-                        })
-                      }
-                      className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                    >
-                      <InformationCircleIcon className="w-5 h-5" />
-                    </button>
-                    {user.role !== "admin" && (
+                  <td className="py-4 px-6">
+                    <div className="flex justify-center gap-2">
                       <button
-                        onClick={() => handleDelete(user.id, user.username)}
-                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        onClick={() =>
+                          Swal.fire({
+                            icon: "info",
+                            title: "ข้อมูล",
+                            text: `สร้างเมื่อ: ${new Date(
+                              user.createdAt
+                            ).toLocaleString("th-TH")}`,
+                          })
+                        }
+                        className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
                       >
-                        <TrashIcon className="w-5 h-5" />
+                        <InformationCircleIcon className="w-5 h-5" />
                       </button>
-                    )}
+                      {user.role !== "admin" && (
+                        <button
+                          onClick={() => handleDelete(user.id, user.username)}
+                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <TrashIcon className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))

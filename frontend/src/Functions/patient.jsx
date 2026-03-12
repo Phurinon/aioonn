@@ -114,3 +114,19 @@ export const deletePatient = async (id) => {
     throw error;
   }
 };
+
+export const updatePatient = async (id, data) => {
+  try {
+    const response = await axios.put(`${API_URL}/patient/update/${id}`, data, {
+      ...getAuthHeaders(),
+      headers: {
+        ...getAuthHeaders().headers,
+        "Content-Type": "application/json",
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+};

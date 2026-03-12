@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { getPatients, deletePatient } from "../../Functions/patient";
 import Swal from "sweetalert2";
-import { UsersIcon, CheckCircleIcon, QueueListIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { UsersIcon, CheckCircleIcon, QueueListIcon, TrashIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
+import EditPatientModal from "../../components/EditPatientModal";
 
 export default function PatientManagement() {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState(null);
 
   const fetchPatients = async () => {
     try {
@@ -62,6 +65,11 @@ export default function PatientManagement() {
     }
   };
 
+  const handleEditClick = (patient) => {
+    setSelectedPatient(patient);
+    setIsEditModalOpen(true);
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-full">กำลังโหลด...</div>;
   }
@@ -85,7 +93,7 @@ export default function PatientManagement() {
               <th className="py-4 px-6 font-semibold">ชื่อผู้ป่วย</th>
               <th className="py-4 px-6 font-semibold">ผู้ดูแล (Hospital ID)</th>
               <th className="py-4 px-6 font-semibold">วันที่บันทึก (ล่าสุด)</th>
-              <th className="py-4 px-6 font-semibold text-center">ประวัติ/อาการ</th>
+              <th className="py-4 px-6 font-semibold text-center">อาการ/ประวัติ</th>
               <th className="py-4 px-6 font-semibold text-center">จัดการ</th>
             </tr>
           </thead>
@@ -114,24 +122,35 @@ export default function PatientManagement() {
                         ? new Date(latestHistory.createdAt).toLocaleDateString("th-TH")
                         : "-"}
                     </td>
-                    <td className="py-4 px-6 flex justify-center gap-3">
-                      <div className="flex items-center gap-1 bg-orange-50 text-orange-600 px-3 py-1 rounded-full text-xs font-semibold" title="จำนวนอาการตั้งต้น">
-                        <QueueListIcon className="w-4 h-4"/>
-                        {symptomCount}
-                      </div>
-                      <div className="flex items-center gap-1 bg-purple-50 text-purple-600 px-3 py-1 rounded-full text-xs font-semibold" title="จำนวนประวัติการรักษาทั้งหมด">
-                        <CheckCircleIcon className="w-4 h-4"/>
-                        {patient.therapyHistories?.length || 0}
+                    <td className="py-4 px-6">
+                      <div className="flex justify-center gap-3">
+                        <div className="flex items-center gap-1 bg-orange-50 text-orange-600 px-3 py-1 rounded-full text-xs font-semibold" title="จำนวนอาการตั้งต้น">
+                          <QueueListIcon className="w-4 h-4"/>
+                          {symptomCount}
+                        </div>
+                        <div className="flex items-center gap-1 bg-purple-50 text-purple-600 px-3 py-1 rounded-full text-xs font-semibold" title="จำนวนประวัติการรักษาทั้งหมด">
+                          <CheckCircleIcon className="w-4 h-4"/>
+                          {patient.therapyHistories?.length || 0}
+                        </div>
                       </div>
                     </td>
-                    <td className="py-4 px-6 flex justify-center gap-2">
-                      <button
-                        onClick={() => handleDelete(patient.id, `${patient.firstName} ${patient.lastName}`)}
-                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="ลบ"
-                      >
-                        <TrashIcon className="w-5 h-5" />
-                      </button>
+                    <td className="py-4 px-6">
+                      <div className="flex justify-center gap-2">
+                        <button
+                          onClick={() => handleEditClick(patient)}
+                          className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="แก้ไข"
+                        >
+                          <PencilSquareIcon className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(patient.id, `${patient.firstName} ${patient.lastName}`)}
+                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="ลบ"
+                        >
+                          <TrashIcon className="w-5 h-5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -146,6 +165,15 @@ export default function PatientManagement() {
           </tbody>
         </table>
       </div>
+
+      <EditPatientModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedPatient(null);
+        }}
+        patientData={selectedPatient}
+      />
     </div>
   );
 }
