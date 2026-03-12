@@ -107,7 +107,7 @@ const routes = [
             element: <ShoulderAbduction />,
           },
           {
-            path: "activity/:patientId/active/elbow-rotation",
+            path: "activity/:patientId/active/internal-rotation",
             element: <ElbowRotation />,
           },
           // หน้า Activity - ทดสอบการทรงตัว (แกนกลางลำตัว)
