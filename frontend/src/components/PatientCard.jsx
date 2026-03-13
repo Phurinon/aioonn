@@ -33,6 +33,18 @@ export default function PatientCard({
           {name || "default name"}
         </h3>
         <div className="flex items-center gap-2">
+          {/* History Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/therapy-history/${id}`);
+            }}
+            className="w-8 h-8 rounded-full bg-[#F3FBFC] text-[#40C9D5] flex items-center justify-center hover:bg-[#40C9D5] hover:text-white transition shadow-sm z-10"
+            title="ดูประวัติการรักษา"
+          >
+            <ClockIcon className="w-4 h-4" />
+          </button>
+
           {/* Summary Button */}
           <button
             onClick={(e) => {

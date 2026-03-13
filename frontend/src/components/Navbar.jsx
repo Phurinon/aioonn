@@ -16,8 +16,10 @@ export default function Navbar({ searchTerm, onSearch }) {
         to="/"
         className="flex items-center gap-3 hover:opacity-80 transition"
       >
-        <div className="w-9 h-9 bg-gradient-to-br from-[#40C9D5] to-[#2BA8B4] rounded-full flex items-center justify-center shadow-md">
-          <div className="w-4 h-4 bg-white rounded-full opacity-80"></div>
+        <div className="w-9 h-9 bg-gradient-to-br from-[#40C9D5] to-[#2BA8B4] rounded-[10px] flex items-center justify-center shadow-lg shadow-[#40C9D5]/20">
+          <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 12H5L8 20L12 4L15 14L18 10H22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </div>
         <span className="font-bold text-2xl text-[#344054] tracking-tight">
           AIOON

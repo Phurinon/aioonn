@@ -85,6 +85,7 @@ const routes = [
           { index: true, element: <Dashboard /> },
           // หน้าประวัติการรักษา
           { path: "therapy-history", element: <TherapyHistory /> },
+          { path: "therapy-history/:historyPatientId", element: <TherapyHistory /> },
         ],
       },
       {
