@@ -392,12 +392,11 @@ const Mediapipe = forwardRef(function Mediapipe(
 
       // New: Calculate Forearm Angles (Absolute angle relative to horizontal)
       // 90 = Up (Vertical), 0 = Right, 180 = Left, -90 = Down
-      // Formula: Math.atan2(Elbow.y - Wrist.y, Wrist.x - Elbow.x) * 180 / PI
-      // Note: Y is inverted in MediaPipe (0 is top), so (Elbow.y - Wrist.y) gives positive for Up.
-
       const calculateForearmAngle = (elbow, wrist) => {
         if (!elbow || !wrist) return 0;
-        return Math.atan2(elbow.y - wrist.y, wrist.x - elbow.x) * 180 / Math.PI;
+        // คำนวณมุมโดยอ้างอิงจากแนวตั้ง (Up = 0 deg)
+        // atan2(dx, dy) โดยที่ dy ของเราคือความต่างในแนวตั้งที่พุ่งขึ้น (elbow.y - wrist.y)
+        return Math.atan2(wrist.x - elbow.x, elbow.y - wrist.y) * 180 / Math.PI;
       };
 
       const rightForearmAngle = calculateForearmAngle(rightElbow, flippedLandmarks[16]); // 16 = Right Wrist
@@ -407,22 +406,25 @@ const Mediapipe = forwardRef(function Mediapipe(
       let maxAngle = 0;
 
       if (trackingModeRef.current === "elbow") {
-        // Elbow Rotation / External Rotation Logic
-        const calcScore = (rawForearm) => {
-          let val = (rawForearm || 0) + 90;
-          if (val < 0) val = 0;
-          if (val > 180) val = 180;
-          return 180 - val;
-        };
-
+        // Elbow Rotation / External Rotation Logic (0 deg = Vertical Up, 90 deg = Outward, 180 deg = Down)
         const isRightShoulderValid = rightAngle >= 70 && rightAngle <= 120;
         const isLeftShoulderValid = leftAngle >= 70 && leftAngle <= 120;
 
-        const rightScore = isRightShoulderValid ? calcScore(rightForearmAngle) : 0;
-        const leftScore = isLeftShoulderValid ? calcScore(leftForearmAngle) : 0;
+        const rightScore = isRightShoulderValid ? Math.max(0, Math.min(180, rightForearmAngle)) : 0;
+        
+        let leftScore = 0;
+        if (isLeftShoulderValid) {
+          // สำหรับแขนซ้าย การหมุนออกคือติดลบ (0 ถึง -180)
+          // แต่หากลงไปต่ำสุด atan2 อาจคืนค่า 180 ได้ จึงต้องรองรับทั้งสองกรณี
+          if (leftForearmAngle > 0) {
+            leftScore = (leftForearmAngle > 170) ? leftForearmAngle : 0;
+          } else {
+            leftScore = -leftForearmAngle;
+          }
+        }
 
         if (trackedSideRef.current === "left") {
-          maxAngle = leftScore;
+          maxAngle = Math.max(0, Math.min(180, leftScore));
         } else if (trackedSideRef.current === "right") {
           maxAngle = rightScore;
         } else {

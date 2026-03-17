@@ -113,18 +113,27 @@ export default function DailyRomTesting() {
         let isConstraintMet = true;
 
         if (currentStep.action === 'ExternalRotation') {
-            // External Rotation Logic:
-            // 1. Forearm Angle: 0 (Down/Earth) to 180 (Up/Ceiling)
-            // 2. Score: Inverted. Start (Up) = 0. End (Down) = 180.
-            // Formula: Score = 180 - ForearmAngle (Clamped 0-180)
+            // External Rotation Logic (Improved):
+            // 1. Reference from Vertical (Up = 0 deg)
+            // 2. Outward rotation gives positive (Right) or negative (Left)
+            // 3. Convert to 0-180 Score based on Side
 
             const rawForearmAngle = currentStep.side === 'Right' ? angles.rightForearm : angles.leftForearm;
-            let forearmAngle = (rawForearmAngle || 0) + 90; // Convert to 0-180 range
-            if (forearmAngle < 0) forearmAngle = 0;
-            if (forearmAngle > 180) forearmAngle = 180;
-
-            // Calculate Score (Inverted)
-            angleToTrack = 180 - forearmAngle;
+            
+            // Score = positive displacement for Right, negative displacement for Left
+            let score = 0;
+            if (currentStep.side === 'Left') {
+                if (rawForearmAngle > 0) {
+                    score = (rawForearmAngle > 170) ? rawForearmAngle : 0;
+                } else {
+                    score = -rawForearmAngle;
+                }
+            } else {
+                score = rawForearmAngle;
+            }
+            
+            // Clamp 0-180
+            angleToTrack = Math.max(0, Math.min(180, score));
 
             // Constraint: Shoulder Abduction must be 70-120 degrees
             const shoulderAngle = currentStep.side === 'Right' ? angles.right : angles.left;
