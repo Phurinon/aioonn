@@ -92,8 +92,8 @@ export default function ElbowRotation({
             .then(res => {
                 if (res.data) {
                     // แยก ID ตามข้าง: ขวา (19), ซ้าย (20) สำหรับ Elbow Rotation
-                    const targetSlug = selectedArm === 'right' ? 'elbow-rotation-right' : 'elbow-rotation-left';
-                    const mode = res.data.find(m => m.slug === targetSlug || (m.slug === 'elbow-rotation' && selectedArm === 'right'));
+                    const targetSlug = selectedArm === 'right' ? 'daily-ex-rotation-right' : 'daily-ex-rotation-left';
+                    const mode = res.data.find(m => m.slug === targetSlug);
                     
                     if (mode) {
                         setTherapyId(mode.id);

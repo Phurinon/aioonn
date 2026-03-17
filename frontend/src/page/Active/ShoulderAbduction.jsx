@@ -91,8 +91,8 @@ export default function ShoulderAbduction({
             .then(res => {
                 if (res.data) {
                     // แยก ID ตามข้าง: ขวา (17), ซ้าย (18) สำหรับ Shoulder Abduction
-                    const targetSlug = selectedArm === 'right' ? 'shoulder-abduction-right' : 'shoulder-abduction-left';
-                    const mode = res.data.find(m => m.slug === targetSlug || (m.slug === 'shoulder-abduction' && selectedArm === 'right'));
+                    const targetSlug = selectedArm === 'right' ? 'daily-abduction-right' : 'daily-abduction-left';
+                    const mode = res.data.find(m => m.slug === targetSlug);
                     
                     if (mode) {
                         setTherapyId(mode.id);

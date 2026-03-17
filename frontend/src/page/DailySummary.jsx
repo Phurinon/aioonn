@@ -126,6 +126,11 @@ function DailySummary() {
 
           // 3. แยกข้าง (ซ้าย/ขวา)
           const isItemRight = (item) => {
+            const id = item.therapyTypesId;
+            // ตรวจสอบจาก ID ของ Daily ROM โดยตรง (15, 17, 19 คือขวา)
+            if ([15, 17, 19].includes(id)) return true;
+            if ([16, 18, 20].includes(id)) return false;
+
             const t = item.therapyTypes || {};
             const slug = (t.slug || "").toLowerCase();
             const title = (t.title || "").toLowerCase();
@@ -141,8 +146,8 @@ function DailySummary() {
               const title = (item.therapyTypes?.title || "").toLowerCase();
               const score = Number(item.score) || 0;
 
-              // ถ้าเป็น ID ที่เราระบุไว้สำหรับการเทสแน่นอน (15-20) ให้ถือว่าเป็น Baseline ทันที
-              if (targetIds.includes(item.therapyTypesId)) return true;
+              // ถ้าเป็น ID ที่เราระบุไว้สำหรับการเทสแน่นอน (15-20) และต้องมี score เป็น 0 เท่านั้น
+              if (targetIds.includes(item.therapyTypesId) && score === 0) return true;
 
               const isTest = (category === 'daily' ||
                 category === 'baseline' ||
@@ -221,39 +226,45 @@ function DailySummary() {
               .map((item, index) => {
                 const isRight = isItemRight(item);
                 const sideGoal = isRight ? (rightBaseline || generalBaseline) : (leftBaseline || generalBaseline);
+                const sideText = isRight ? '(ขวา)' : '(ซ้าย)';
                 return {
-                  time: `รอบ ${index + 1}`,
+                  time: `รอบ ${index + 1} ${sideText}`,
                   activeAngle: Number(item.angle) || 0,
-                  dailyAngle: sideGoal || 0,
+                  targetAngle: sideGoal || 0,
                   side: isRight ? 'ขวา' : 'ซ้าย'
                 };
               });
 
             if (chartData.length === 0 && generalBaseline > 0) {
-              chartData.push({ time: "เป้าหมาย", activeAngle: 0, dailyAngle: generalBaseline, isPlaceholder: true });
+              chartData.push({ time: "เป้าหมาย", activeAngle: 0, targetAngle: generalBaseline, isPlaceholder: true });
             }
           } else {
             const grouped = {};
             modeHistory.forEach(item => {
               const d = new Date(item.createdAt).toLocaleDateString('en-CA');
-              if (!grouped[d]) grouped[d] = { dailyMax: 0, activeMax: 0 };
+              if (!grouped[d]) grouped[d] = { dailyMax: 0, leftMax: 0, rightMax: 0 };
               const angle = Number(item.angle) || 0;
               const category = (item.therapyTypes?.category || "").toLowerCase();
               const title = (item.therapyTypes?.title || "").toLowerCase();
               const score = Number(item.score) || 0;
+              const isRight = isItemRight(item);
 
-              const isDailyRom = targetIds.includes(item.therapyTypesId) || 
+              const isDailyRom = (targetIds.includes(item.therapyTypesId) && score === 0) || 
                                 ((category === 'daily' || category === 'baseline' || title.includes('ทดสอบ') || title.includes('เทส'))) && score === 0;
 
               if (isDailyRom) {
                 grouped[d].dailyMax = Math.max(grouped[d].dailyMax, angle);
               } else {
-                grouped[d].activeMax = Math.max(grouped[d].activeMax, angle);
+                if (isRight) {
+                  grouped[d].rightMax = Math.max(grouped[d].rightMax, angle);
+                } else {
+                  grouped[d].leftMax = Math.max(grouped[d].leftMax, angle);
+                }
               }
             });
             chartData = Object.entries(grouped).sort().map(([date, vals]) => ({
               date: new Date(date).toLocaleDateString("th-TH", { day: "numeric", month: "short" }),
-              activeMaxAngle: vals.activeMax,
+              activeMaxAngle: Math.max(vals.leftMax, vals.rightMax),
               dailyMaxAngle: vals.dailyMax
             }));
           }
@@ -290,14 +301,15 @@ function DailySummary() {
   }, [patientId, viewMode]);
 
   useEffect(() => {
-    if (!loading) {
-      setTimeout(() => {
+    if (!loading && Object.keys(data).length > 0) {
+      const scrollTimer = setTimeout(() => {
         Object.values(chartRefs.current).forEach(container => {
           if (container) {
             container.scrollLeft = container.scrollWidth;
           }
         });
-      }, 300);
+      }, 500); // เพิ่มเวลาให้ Recharts เรนเดอร์เสร็จ
+      return () => clearTimeout(scrollTimer);
     }
   }, [loading, data, viewMode]);
 
@@ -379,33 +391,33 @@ function DailySummary() {
                       <div className="flex justify-center items-center gap-6 mb-4 mt-1">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: mode.primary }}></div>
-                          <span className="text-xs font-semibold text-[#4B5563]">{viewMode === "today" ? "ทำได้จริง (ฝึก)" : "ทำได้จริงสูงสุด/วัน"}</span>
+                          <span className="text-xs font-semibold text-[#4B5563]">ทำได้จริง (ซ้าย/ขวา)</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: mode.secondary }}></div>
-                          <span className="text-xs font-semibold text-[#4B5563]">{viewMode === "today" ? "เป้าหมาย (ทดสอบ)" : "เป้าหมายสูงสุด/วัน"}</span>
+                          <span className="text-xs font-semibold text-[#4B5563]">เป้าหมาย</span>
                         </div>
                       </div>
                     )}
 
                     {chartData.length > 0 ? (
                       <div ref={el => chartRefs.current[mode.slug] = el} className="w-full flex-1 overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent scroll-smooth">
-                        <div style={{ minWidth: `${Math.max(100, (chartData.length / 20) * 100)}%`, height: '100%' }}>
+                        <div style={{ minWidth: `${Math.max(100, (chartData.length / 10) * 100)}%`, height: '100%' }}>
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }} barGap={4} barSize={16}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
-                              <XAxis dataKey={viewMode === "today" ? "time" : "date"} axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 11, fontWeight: 600 }} dy={10} />
+                              <XAxis dataKey={viewMode === "today" ? "time" : "date"} axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 10, fontWeight: 600 }} dy={10} interval={0} />
                               <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 11 }} />
                               <Tooltip cursor={{ fill: 'rgba(0,0,0,0.04)', rx: 8 }} content={<CustomTooltip />} />
                               {viewMode === "today" ? (
                                 <>
-                                  <Bar dataKey="dailyAngle" name="เป้าหมาย (ทดสอบ)" fill={mode.secondary} radius={[4, 4, 4, 4]} />
-                                  <Bar dataKey="activeAngle" name="ทำได้จริง (ฝึก)" fill={mode.primary} radius={[4, 4, 4, 4]} />
+                                  <Bar dataKey="targetAngle" name="เป้าหมาย" fill={mode.secondary} radius={[4, 4, 4, 4]} />
+                                  <Bar dataKey="activeAngle" name="ทำได้จริง" fill={mode.primary} radius={[4, 4, 4, 4]} />
                                 </>
                               ) : (
                                 <>
-                                  <Bar dataKey="dailyMaxAngle" name="เป้าหมายสูงสุด/วัน" fill={mode.secondary} radius={[4, 4, 4, 4]} />
-                                  <Bar dataKey="activeMaxAngle" name="ทำได้จริงสูงสุด/วัน" fill={mode.primary} radius={[4, 4, 4, 4]} />
+                                  <Bar dataKey="dailyMaxAngle" name="เป้าหมายสูงสุด" fill={mode.secondary} radius={[4, 4, 4, 4]} />
+                                  <Bar dataKey="activeMaxAngle" name="ทำได้จริงสูงสุด" fill={mode.primary} radius={[4, 4, 4, 4]} />
                                 </>
                               )}
                             </BarChart>

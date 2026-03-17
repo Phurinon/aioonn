@@ -91,8 +91,8 @@ export default function ShoulderFlexion({
             .then(res => {
                 if (res.data) {
                     // แยก ID ตามข้าง: ขวา (15), ซ้าย (16) สำหรับ Shoulder Flexion
-                    const targetSlug = selectedArm === 'right' ? 'shoulder-flexion-right' : 'shoulder-flexion-left';
-                    const mode = res.data.find(m => m.slug === targetSlug || (m.slug === 'shoulder-flexion' && selectedArm === 'right'));
+                    const targetSlug = selectedArm === 'right' ? 'daily-forward-flexion-right' : 'daily-forward-flexion-left';
+                    const mode = res.data.find(m => m.slug === targetSlug);
                     
                     if (mode) {
                         setTherapyId(mode.id);
