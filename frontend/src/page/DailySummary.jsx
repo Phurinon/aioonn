@@ -9,7 +9,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
@@ -33,6 +32,7 @@ function DailySummary() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setData({}); // ล้างข้อมูลเก่าออกก่อนโหลดใหม่ เพื่อป้องกันข้อมูลคนเก่าค้าง
         const user = JSON.parse(localStorage.getItem("user") || "{}");
         if (!user.id) {
           setLoading(false);
@@ -41,6 +41,10 @@ function DailySummary() {
 
         const response = await getTherapyHistoryByUserId(user.id);
         const history = response.data?.data || [];
+
+        // Fetch all therapy types to map IDs dynamically
+        const typesResponse = await fetch("http://localhost:3000/api/therapy/list").then(r => r.json());
+        const therapyTypes = Array.isArray(typesResponse) ? typesResponse : (typesResponse.data || []);
 
         // Filter by patientId if provided
         let targetHistory = history;
@@ -54,79 +58,111 @@ function DailySummary() {
         let totalImprovement = 0;
         let modesWithData = 0;
 
+        const getSideData = (sideHistory, baselineValue) => {
+          const activeOnly = sideHistory
+            .filter(item => {
+              const category = (item.therapyTypes?.category || "").toLowerCase();
+              const title = (item.therapyTypes?.title || "").toLowerCase();
+              return category !== 'daily' && category !== 'baseline' && !title.includes('ทดสอบ');
+            })
+            .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); // เรียงเก่าไปใหม่
+          
+          const last5 = activeOnly.slice(-5);
+          if (last5.length === 0) return null;
+
+          const avg = last5.reduce((acc, curr) => acc + (Number(curr.angle) || 0), 0) / last5.length;
+          const diff = baselineValue ? avg - baselineValue : 0;
+          const percent = baselineValue ? (diff / baselineValue) * 100 : 0;
+
+          return { avg, diff, percent, count: last5.length };
+        };
+
         activeModes.forEach((mode) => {
-          // IDs for each side based on mode
-          const sideIds = {
-            'shoulder-flexion': { right: 15, left: 16 },
-            'shoulder-abduction': { right: 17, left: 18 },
-            'elbow-rotation': { right: 19, left: 20 }
-          }[mode.slug];
+          const modeSlug = mode.slug.toLowerCase();
+          const modeTitle = mode.title.toLowerCase();
+          
+          // สร้างคีย์เวิร์ดสำหรับการค้นหา (เช่น flexion, ยกแขน, หน้า)
+          const keywords = [
+            modeSlug.split('-').pop(), // flexion, abduction, rotation
+            ...modeTitle.replace('ด้าน', '').split(' ') // ยกแขน, หน้า
+          ].filter(k => k.length > 2);
 
-          const modeHistory = targetHistory.filter(item => {
-            const tid = item.therapyTypesId;
-            const t = item.therapyTypes;
-            if (!t) return false;
-
-            // 1. ตรวจสอบตาม ID ที่ระบุเจาะจง
-            if (Object.values(sideIds).includes(tid)) return true;
-
-            // 2. ตรวจสอบตาม Slug (รองรับข้อมูลเดิม)
+          // 1. ค้นหาประเภทท่าทางทั้งหมดที่เกี่ยวข้องกับ Mode นี้
+          const modeTypes = therapyTypes.filter(t => {
             const slug = (t.slug || "").toLowerCase();
-            const modeSlug = mode.slug.toLowerCase();
-            if (slug === modeSlug || slug === `${modeSlug}-right` || slug === `${modeSlug}-left`) return true;
+            const title = (t.title || "").toLowerCase();
+            const category = (t.category || "").toLowerCase();
 
-            // 3. ตรวจสอบข้อมูล Daily Test เดิมที่อาจไม่มี slug ตรงกันเป๊ะ
-            if (t.category?.toLowerCase() === 'daily') {
-              const title = (t.title || "").toLowerCase();
-              if (modeSlug === 'shoulder-flexion' && (title.includes('flexion') || (title.includes('ยกแขน') && title.includes('หน้า')))) return true;
-              if (modeSlug === 'shoulder-abduction' && (title.includes('abduction') || title.includes('กาง'))) return true;
-              if (modeSlug === 'elbow-rotation' && (title.includes('rotation') || title.includes('หมุน'))) return true;
-            }
-
+            if (slug && (slug === modeSlug || slug.includes(modeSlug))) return true;
+            if (title && (title.includes(modeSlug) || title.includes(modeTitle))) return true;
+            
+            // ตรวจสอบด้วยคีย์เวิร์ด (รองรับชื่อที่ต่างกันเล็กน้อย)
+            if (keywords.some(k => title.includes(k) || slug.includes(k))) return true;
+            
             return false;
           });
 
-          const getSideData = (sideHistory, baselineValue) => {
-            const activeOnly = sideHistory
-              .filter(item => item.therapyTypes?.category?.toLowerCase() !== 'daily')
-              .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-            
-            const last5 = activeOnly.slice(-5);
-            if (last5.length === 0) return null;
+          const modeTypeIds = modeTypes.map(t => t.id);
 
-            const avg = last5.reduce((acc, curr) => acc + (Number(curr.angle) || 0), 0) / last5.length;
-            const diff = baselineValue ? avg - baselineValue : 0;
-            const percent = baselineValue ? (diff / baselineValue) * 100 : 0;
+          // 2. กรองประวัติที่เกี่ยวข้องกับ Mode นี้ (ดึงทุกอย่างที่เกี่ยวกับโหมดนี้)
+          const modeHistory = targetHistory
+            .filter(item => {
+              if (modeTypeIds.includes(item.therapyTypesId)) return true;
+              const t = item.therapyTypes || {};
+              const slug = (t.slug || "").toLowerCase();
+              const title = (t.title || "").toLowerCase();
+              return (slug && (slug === modeSlug || slug.includes(modeSlug))) || 
+                     (title && (title.includes(modeSlug) || title.includes(modeTitle))) ||
+                     (keywords.some(k => title.includes(k) || slug.includes(k)));
+            })
+            .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
-            return { avg, diff, percent, count: last5.length };
+          // 3. แยกข้าง (ซ้าย/ขวา)
+          const isItemRight = (item) => {
+            const t = item.therapyTypes || {};
+            const slug = (t.slug || "").toLowerCase();
+            const title = (t.title || "").toLowerCase();
+            return slug.includes('right') || title.includes('ขวา') || title.includes('right');
           };
 
-          const rightHistory = modeHistory.filter(item => 
-            item.therapyTypesId === sideIds.right || 
-            (item.therapyTypes?.slug || "").toLowerCase().includes('right')
-          );
-          const leftHistory = modeHistory.filter(item => 
-            item.therapyTypesId === sideIds.left || 
-            (item.therapyTypes?.slug || "").toLowerCase().includes('left')
-          );
+          const rightHistory = modeHistory.filter(item => isItemRight(item));
+          const leftHistory = modeHistory.filter(item => !isItemRight(item));
 
-          const rightBaseline = rightHistory
-            .filter(item => item.therapyTypes?.category?.toLowerCase() === 'daily')
+          const getBaseline = (history) => history
+            .filter(item => {
+              const category = (item.therapyTypes?.category || "").toLowerCase();
+              const title = (item.therapyTypes?.title || "").toLowerCase();
+              const slug = (item.therapyTypes?.slug || "").toLowerCase();
+              
+              const isTest = category === 'daily' || 
+                             category === 'baseline' || 
+                             title.includes('ทดสอบ') || 
+                             title.includes('baseline') || 
+                             title.includes('rom') ||
+                             slug.includes('test') ||
+                             slug.includes('baseline');
+              return isTest;
+            })
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0]?.angle || null;
-            
-          const leftBaseline = leftHistory
-            .filter(item => item.therapyTypes?.category?.toLowerCase() === 'daily')
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0]?.angle || null;
+
+          const rightBaseline = getBaseline(rightHistory);
+          const leftBaseline = getBaseline(leftHistory);
+          const generalBaseline = getBaseline(modeHistory);
 
           const rightSummary = getSideData(rightHistory, rightBaseline);
           const leftSummary = getSideData(leftHistory, leftBaseline);
+          const generalSummary = getSideData(modeHistory, generalBaseline);
 
           let progressText = "";
           let progressEmoji = "💪";
+          let encouragementText = "";
 
-          if (!rightSummary && !leftSummary) {
-            progressText = "คอยดูความก้าวหน้าของคุณที่นี่นะ!";
-            progressEmoji = "✨";
+          if (!rightSummary && !leftSummary && !generalSummary) {
+            progressText = "รอการพิชิตสถิติแรกของวัน";
+            progressEmoji = "🎯";
+            encouragementText = generalBaseline 
+              ? `ทดสอบมุมองศาเรียบร้อยแล้ว (${Math.round(generalBaseline)}°) มาเริ่มฝึกเพื่อไต่ระดับให้ถึงเป้าหมายกันเถอะ! 💪` 
+              : "มาเริ่มฝึกวันนี้เพื่อดูความก้าวหน้าของคุณกัน!";
           } else {
             const summaries = [];
             if (rightSummary) {
@@ -137,44 +173,58 @@ function DailySummary() {
               const sign = leftSummary.percent >= 0 ? "+" : "";
               summaries.push(`ซ้าย: เฉลี่ย ${Math.round(leftSummary.avg)}° (${sign}${Math.round(leftSummary.percent)}%)`);
             }
+            if (summaries.length === 0 && generalSummary) {
+              const sign = generalSummary.percent >= 0 ? "+" : "";
+              summaries.push(`เฉลี่ยรวม: ${Math.round(generalSummary.avg)}° (${sign}${Math.round(generalSummary.percent)}%)`);
+            }
             progressText = summaries.join(" | ");
             
-            // Encouragement logic based on improvement
-            const maxPercent = Math.max(rightSummary?.percent || -999, leftSummary?.percent || -999);
-            if (maxPercent > 5) progressEmoji = "🚀";
-            else if (maxPercent > 0) progressEmoji = "🌟";
-            else progressEmoji = "👏";
+            const maxPercent = Math.max(rightSummary?.percent ?? -999, leftSummary?.percent ?? -999, generalSummary?.percent ?? -999);
+            if (maxPercent > 10) { encouragementText = `สุดยอดมาก! พัฒนาขึ้นถึง ${Math.round(maxPercent)}% เลย เก่งที่สุดครับ! 🚀`; progressEmoji = "🚀"; }
+            else if (maxPercent > 5) { encouragementText = `เยี่ยมเลยครับ! พัฒนาขึ้น ${Math.round(maxPercent)}% อย่างเห็นได้ชัด สู้ต่อไปนะ 🌟`; progressEmoji = "🌟"; }
+            else if (maxPercent > 0) { encouragementText = `ดีมากครับ! มีการพัฒนาขึ้นเรื่อยๆ ร่างกายกำลังปรับตัวได้ดีเลย 👍`; progressEmoji = "✨"; }
+            else if (maxPercent > -999) { encouragementText = "ไม่เป็นไรนะ วันนี้อาจจะเหนื่อยหน่อย พักผ่อนแล้วพรุ่งนี้มาฝึกใหม่นะครับ 💪"; progressEmoji = "👏"; }
+            else { encouragementText = "พร้อมแล้วหรือยัง? มาเริ่มสร้างสถิติใหม่ของคุณวันนี้กันเถอะ! ✨"; progressEmoji = "🎯"; }
+
+            totalImprovement += maxPercent > -999 ? maxPercent : 0;
+            if (maxPercent > -999) modesWithData++;
           }
 
-          // Chart data reconstruction (keep unified view for chart)
           let chartData = [];
           if (viewMode === "today") {
-            const today = new Date().toISOString().split('T')[0];
-            const todayData = modeHistory.filter(item => item.createdAt.split('T')[0] === today);
+            const today = new Date().toLocaleDateString('en-CA');
+            const todayData = modeHistory.filter(item => new Date(item.createdAt).toLocaleDateString('en-CA') === today);
             
-            // Max test value for today (unified for legend simplicity or keep separate?)
-            const dailyMax = Math.max(rightBaseline || 0, leftBaseline || 0);
-
             chartData = todayData
-              .filter(item => item.therapyTypes?.category?.toLowerCase() !== 'daily')
-              .map((item, index) => ({
-                time: `รอบ ${index + 1}`,
-                activeAngle: Number(item.angle) || 0,
-                dailyAngle: dailyMax,
-                side: item.therapyTypesId === sideIds.right ? 'ขวา' : 'ซ้าย'
-              }));
+              .filter(item => {
+                const category = (item.therapyTypes?.category || "").toLowerCase();
+                const title = (item.therapyTypes?.title || "").toLowerCase();
+                return category !== 'daily' && category !== 'baseline' && !title.includes('ทดสอบ');
+              })
+              .map((item, index) => {
+                const isRight = isItemRight(item);
+                const sideGoal = isRight ? (rightBaseline || generalBaseline) : (leftBaseline || generalBaseline);
+                return {
+                  time: `รอบ ${index + 1}`,
+                  activeAngle: Number(item.angle) || 0,
+                  dailyAngle: sideGoal || 0,
+                  side: isRight ? 'ขวา' : 'ซ้าย'
+                };
+              });
+
+            if (chartData.length === 0 && generalBaseline > 0) {
+              chartData.push({ time: "เป้าหมาย", activeAngle: 0, dailyAngle: generalBaseline, isPlaceholder: true });
+            }
           } else {
-            // ... existing grouped logic simplified ...
             const grouped = {};
             modeHistory.forEach(item => {
-              const d = item.createdAt.split('T')[0];
+              const d = new Date(item.createdAt).toLocaleDateString('en-CA');
               if (!grouped[d]) grouped[d] = { dailyMax: 0, activeMax: 0 };
               const angle = Number(item.angle) || 0;
-              if (item.therapyTypes?.category?.toLowerCase() === 'daily') {
-                grouped[d].dailyMax = Math.max(grouped[d].dailyMax, angle);
-              } else {
-                grouped[d].activeMax = Math.max(grouped[d].activeMax, angle);
-              }
+              const category = (item.therapyTypes?.category || "").toLowerCase();
+              const title = (item.therapyTypes?.title || "").toLowerCase();
+              if (category === 'daily' || category === 'baseline' || title.includes('ทดสอบ')) { grouped[d].dailyMax = Math.max(grouped[d].dailyMax, angle); }
+              else { grouped[d].activeMax = Math.max(grouped[d].activeMax, angle); }
             });
             chartData = Object.entries(grouped).sort().map(([date, vals]) => ({
               date: new Date(date).toLocaleDateString("th-TH", { day: "numeric", month: "short" }),
@@ -184,11 +234,7 @@ function DailySummary() {
           }
 
           newModeData[mode.slug] = {
-            progressText,
-            progressEmoji,
-            chartData,
-            rightSummary,
-            leftSummary
+            progressText, progressEmoji, encouragementText, chartData, rightSummary, leftSummary
           };
         });
 
@@ -208,7 +254,6 @@ function DailySummary() {
           setOverallProgress({ text: "พร้อมจะสร้างสถิติรึยัง? มาเริ่มออกกำลังกายกันเถอะ!", emoji: "🔥" });
         }
 
-
       } catch (error) {
         console.error("Error fetching summary data:", error);
       } finally {
@@ -219,10 +264,8 @@ function DailySummary() {
     fetchData();
   }, [patientId, viewMode]);
 
-  // เลื่อนไปทางขวาสุดเมื่อข้อมูลโหลดเสร็จหรือเปลี่ยนโหมดการดู
   useEffect(() => {
     if (!loading) {
-      // ให้เวลา Recharts เรนเดอร์เล็กน้อย
       setTimeout(() => {
         Object.values(chartRefs.current).forEach(container => {
           if (container) {
@@ -233,7 +276,6 @@ function DailySummary() {
     }
   }, [loading, data, viewMode]);
 
-  // Custom Tooltip for BarChart
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
@@ -254,7 +296,6 @@ function DailySummary() {
 
   return (
     <div className="bg-[#F3FBFC] min-h-screen pb-10 font-sans">
-      {/* Header Container */}
       <div className="bg-white shadow-sm pt-8 pb-6 px-4 md:px-10 rounded-b-[40px] mb-8 relative z-10">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <button
@@ -265,53 +306,28 @@ function DailySummary() {
           </button>
 
           <div className="text-center md:text-left flex-1 px-4">
-            <h1 className="text-3xl font-extrabold text-[#344054] mb-2">
-              สรุปผลการฟื้นฟูประจำวัน
-            </h1>
-            <p className="text-gray-500 font-medium text-sm md:text-base">
-              ติดตามความก้าวหน้า และฉลองให้กับทุกๆ ข้อต่อที่ขยับได้ดีขึ้น
-            </p>
+            <h1 className="text-3xl font-extrabold text-[#344054] mb-2">สรุปผลการฟื้นฟูประจำวัน</h1>
+            <p className="text-gray-500 font-medium text-sm md:text-base">ติดตามความก้าวหน้า และฉลองให้กับทุกๆ ข้อต่อที่ขยับได้ดีขึ้น</p>
           </div>
 
-          {/* Overall Motivation Badge */}
           <div className="bg-gradient-to-r from-[#40C9D5]/10 to-blue-500/10 border border-[#40C9D5]/20 rounded-2xl p-4 flex items-center gap-4 max-w-sm shadow-sm md:self-center w-full md:w-auto mt-4 md:mt-0">
             <div className="text-4xl">{overallProgress.emoji}</div>
             <div>
               <h3 className="font-bold text-[#344054] text-sm">ข้อความจากระบบ</h3>
-              <p className="text-[#40C9D5] font-semibold text-sm leading-tight leading-5">{overallProgress.text}</p>
+              <p className="text-[#40C9D5] font-semibold text-sm leading-tight">{overallProgress.text}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Layout */}
       <div className="max-w-6xl mx-auto px-4 md:px-10 flex flex-col gap-8">
-
-        {/* View Mode Toggle - Pills Style */}
         <div className="flex justify-center md:justify-end shrink-0">
           <div className="bg-white p-1.5 rounded-xl shadow-sm border border-gray-100 inline-flex">
-            <button
-              onClick={() => setViewMode("today")}
-              className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${viewMode === "today"
-                ? "bg-[#40C9D5] text-white shadow-md transform scale-105"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                }`}
-            >
-              ดูของวันนี้
-            </button>
-            <button
-              onClick={() => setViewMode("all")}
-              className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${viewMode === "all"
-                ? "bg-[#40C9D5] text-white shadow-md transform scale-105"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                }`}
-            >
-              ดูย้อนหลังทั้งหมด
-            </button>
+            <button onClick={() => setViewMode("today")} className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${viewMode === "today" ? "bg-[#40C9D5] text-white shadow-md transform scale-105" : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"}`}>ดูของวันนี้</button>
+            <button onClick={() => setViewMode("all")} className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${viewMode === "all" ? "bg-[#40C9D5] text-white shadow-md transform scale-105" : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"}`}>ดูย้อนหลังทั้งหมด</button>
           </div>
         </div>
 
-        {/* Dynamic Cards & Charts */}
         <div className="flex flex-col gap-8 w-full max-w-4xl mx-auto">
           {loading ? (
             <div className="lg:col-span-3 text-center py-20 flex flex-col items-center">
@@ -325,67 +341,37 @@ function DailySummary() {
 
               return (
                 <div key={mode.slug} className="bg-white rounded-[32px] p-6 shadow-sm border border-gray-100 flex flex-col hover:shadow-lg transition-shadow duration-300">
-
-                  {/* Card Header */}
                   <div className="flex items-center gap-4 mb-6">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl bg-gradient-to-br ${mode.color} text-white shadow-sm transform -rotate-3`}>
-                      {mode.icon}
-                    </div>
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl bg-gradient-to-br ${mode.color} text-white shadow-sm transform -rotate-3`}>{mode.icon}</div>
                     <div>
                       <h2 className="text-xl font-bold text-gray-800">{mode.title}</h2>
                       <p className="text-sm font-medium text-gray-500">{viewMode === 'today' ? 'ประทับใจของวันนี้' : 'สถิติที่ผ่านมา'}</p>
                     </div>
                   </div>
 
-                  {/* Chart Area */}
                   <div className={`h-[300px] w-full ${mode.bg} rounded-2xl p-4 relative mb-6 border border-white flex flex-col`}>
-                    
-                    {/* Sticky Legend (คำอธิบายสัญลักษณ์) - อยู่กับที่ ไม่เลื่อนตามกราฟ */}
                     {chartData.length > 0 && (
                       <div className="flex justify-center items-center gap-6 mb-4 mt-1">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: mode.primary }}></div>
-                          <span className="text-xs font-semibold text-[#4B5563]">
-                            {viewMode === "today" ? "ทำได้จริง (ฝึก)" : "ทำได้จริงสูงสุด/วัน"}
-                          </span>
+                          <span className="text-xs font-semibold text-[#4B5563]">{viewMode === "today" ? "ทำได้จริง (ฝึก)" : "ทำได้จริงสูงสุด/วัน"}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: mode.secondary }}></div>
-                          <span className="text-xs font-semibold text-[#4B5563]">
-                            {viewMode === "today" ? "เป้าหมาย (ทดสอบ)" : "เป้าหมายสูงสุด/วัน"}
-                          </span>
+                          <span className="text-xs font-semibold text-[#4B5563]">{viewMode === "today" ? "เป้าหมาย (ทดสอบ)" : "เป้าหมายสูงสุด/วัน"}</span>
                         </div>
                       </div>
                     )}
 
                     {chartData.length > 0 ? (
-                      <div 
-                        ref={el => chartRefs.current[mode.slug] = el}
-                        className="w-full flex-1 overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent scroll-smooth"
-                      >
+                      <div ref={el => chartRefs.current[mode.slug] = el} className="w-full flex-1 overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent scroll-smooth">
                         <div style={{ minWidth: `${Math.max(100, (chartData.length / 20) * 100)}%`, height: '100%' }}>
                           <ResponsiveContainer width="100%" height="100%">
-                            <BarChart
-                              data={chartData}
-                              margin={{ top: 10, right: 0, left: -20, bottom: 0 }}
-                              barGap={4}
-                              barSize={16}
-                            >
+                            <BarChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }} barGap={4} barSize={16}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
-                              <XAxis
-                                dataKey={viewMode === "today" ? "time" : "date"}
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: '#6B7280', fontSize: 11, fontWeight: 600 }}
-                                dy={10}
-                              />
-                              <YAxis
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: '#9CA3AF', fontSize: 11 }}
-                              />
+                              <XAxis dataKey={viewMode === "today" ? "time" : "date"} axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 11, fontWeight: 600 }} dy={10} />
+                              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 11 }} />
                               <Tooltip cursor={{ fill: 'rgba(0,0,0,0.04)', rx: 8 }} content={<CustomTooltip />} />
-                              
                               {viewMode === "today" ? (
                                 <>
                                   <Bar dataKey="dailyAngle" name="เป้าหมาย (ทดสอบ)" fill={mode.secondary} radius={[4, 4, 4, 4]} />
@@ -409,21 +395,19 @@ function DailySummary() {
                     )}
                   </div>
 
-                  {/* Summary Footer */}
-                  <div className="bg-gray-50 rounded-2xl p-4 flex flex-col gap-3 border border-gray-100">
+                  <div className="bg-gray-50 rounded-2xl p-5 flex flex-col gap-4 border border-gray-100 shadow-inner">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-gray-500 font-medium mb-1">ความก้าวหน้า (เฉลี่ย 5 รอบล่าสุด)</p>
-                        <p className={`font-extrabold text-base leading-tight ${mode.text}`}>
-                          {mData.progressText || "รอการท้าทาย"}
-                        </p>
+                      <div className="flex-1">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">ความก้าวหน้า (เฉลี่ย 5 รอบล่าสุด)</p>
+                        <p className={`font-black text-lg leading-tight ${mode.text}`}>{mData.progressText || "ยังไม่มีข้อมูลการฝึก"}</p>
                       </div>
-                      <div className="text-3xl ml-2 w-10 flex justify-center drop-shadow-sm">
-                        {mData.progressEmoji || "💪"}
-                      </div>
+                      <div className="text-4xl ml-3 bg-white w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border border-gray-100 transform rotate-3">{mData.progressEmoji || "💪"}</div>
+                    </div>
+
+                    <div className={`p-3 rounded-xl ${mode.bg} border border-white shadow-sm`}>
+                      <p className={`font-bold text-sm ${mode.text} italic text-center`}>{mData.encouragementText || "มาเริ่มฝึกวันนี้เพื่อดูความก้าวหน้าของคุณกัน!"}</p>
                     </div>
                     
-                    {/* ข้อมูลแยกข้างแบบละเอียด */}
                     {(mData.rightSummary || mData.leftSummary) && (
                       <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200/50">
                         {['right', 'left'].map(side => {
@@ -435,22 +419,15 @@ function DailySummary() {
                               <span className="text-[10px] text-gray-400 font-bold uppercase">{side === 'right' ? 'แขนขวา' : 'แขนซ้าย'}</span>
                               <div className="flex items-baseline gap-1">
                                 <span className="text-sm font-bold text-gray-700">{Math.round(summary.avg)}°</span>
-                                <span className={`text-[11px] font-bold ${isUp ? 'text-green-500' : 'text-orange-500'}`}>
-                                  {isUp ? '↑' : '↓'} {Math.abs(Math.round(summary.percent))}%
-                                </span>
+                                <span className={`text-[11px] font-bold ${isUp ? 'text-green-500' : 'text-orange-500'}`}>{isUp ? '↑' : '↓'} {Math.abs(Math.round(summary.percent))}%</span>
                               </div>
                             </div>
                           );
                         })}
                       </div>
                     )}
-                    
-                    {/* ข้อความให้กำลังใจ */}
-                    <p className="text-[11px] text-gray-400 italic">
-                      * เปรียบเทียบกับค่า Baseline จากการทดสอบ ROM รายวันครั้งล่าสุด
-                    </p>
+                    <p className="text-[11px] text-gray-400 italic leading-tight">* เปรียบเทียบกับค่า Baseline จากการทดสอบ ROM รายวันครั้งล่าสุด</p>
                   </div>
-
                 </div>
               );
             })
