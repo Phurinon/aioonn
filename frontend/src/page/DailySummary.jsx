@@ -90,15 +90,17 @@ function DailySummary() {
         activeModes.forEach((mode) => {
           const modeSlug = mode.slug.toLowerCase();
           const modeTitle = mode.title.toLowerCase();
+          const targetIds = dailyRomIds[modeSlug] || [];
 
           // 1. ค้นหาประเภทท่าทางทั้งหมดที่เกี่ยวข้องกับ Mode นี้
           const modeTypes = therapyTypes.filter(t => {
+            if (targetIds.includes(t.id)) return true;
+
             const slug = (t.slug || "").toLowerCase();
             const title = (t.title || "").toLowerCase();
-            const category = (t.category || "").toLowerCase();
 
             if (slug && (slug === modeSlug || slug.includes(modeSlug))) return true;
-            if (title && (title.includes(modeSlug) || title.includes(modeTitle))) return true;
+            if (title && (title.includes(modeSlug) || title.includes(modeTitle) || title.includes('กาง') || title.includes('หมุน'))) return true;
 
             return false;
           });
@@ -132,12 +134,15 @@ function DailySummary() {
             .filter(item => {
               const category = (item.therapyTypes?.category || "").toLowerCase();
               const title = (item.therapyTypes?.title || "").toLowerCase();
-              const slug = (item.therapyTypes?.slug || "").toLowerCase();
               const score = Number(item.score) || 0;
+
+              // ถ้าเป็น ID ที่เราระบุไว้สำหรับการเทสแน่นอน (15-20) ให้ถือว่าเป็น Baseline ทันที
+              if (targetIds.includes(item.therapyTypesId)) return true;
 
               const isTest = (category === 'daily' ||
                 category === 'baseline' ||
                 title.includes('ทดสอบ') ||
+                title.includes('เทส') ||
                 title.includes('rom')) && score === 0;
               return isTest;
             })
@@ -232,7 +237,10 @@ function DailySummary() {
               const title = (item.therapyTypes?.title || "").toLowerCase();
               const score = Number(item.score) || 0;
 
-              if ((category === 'daily' || category === 'baseline' || title.includes('ทดสอบ')) && score === 0) {
+              const isDailyRom = targetIds.includes(item.therapyTypesId) || 
+                                ((category === 'daily' || category === 'baseline' || title.includes('ทดสอบ') || title.includes('เทส'))) && score === 0;
+
+              if (isDailyRom) {
                 grouped[d].dailyMax = Math.max(grouped[d].dailyMax, angle);
               } else {
                 grouped[d].activeMax = Math.max(grouped[d].activeMax, angle);
