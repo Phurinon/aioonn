@@ -44,6 +44,43 @@ export default function ExerciseHistoryModal({
   const renderSessionStats = (session) => {
     const stats = [];
 
+    // Average Angle (if available)
+    if (session.avgAngle !== undefined) {
+      stats.push(
+        <div
+          key="avgAngle"
+          className="bg-white rounded-xl p-3 flex items-center gap-2"
+        >
+          <div className="w-8 h-8 bg-[#FFF4E5] rounded-lg flex items-center justify-center text-lg">
+            🎯
+          </div>
+          <div>
+            <div className="text-xs text-[#7E8C94]">ค่าเฉลี่ยองศา</div>
+            <div className="text-sm font-semibold text-[#FF9500]">{session.avgAngle}°</div>
+          </div>
+        </div>
+      );
+    }
+
+    // Max Angle (if available)
+    const angle = session.maxAngle || session.angle;
+    if (angle) {
+      stats.push(
+        <div
+          key="maxAngle"
+          className="bg-white rounded-xl p-3 flex items-center gap-2"
+        >
+          <div className="w-8 h-8 bg-[#FFF4E5] rounded-lg flex items-center justify-center text-lg">
+            📐
+          </div>
+          <div>
+            <div className="text-xs text-[#7E8C94]">องศาสูงสุด</div>
+            <div className="text-sm font-semibold text-[#344054]">{angle}°</div>
+          </div>
+        </div>
+      );
+    }
+
     // Duration (always show)
     if (session.targetDuration) {
       // Timer mode - show achieved/target
@@ -126,24 +163,7 @@ export default function ExerciseHistoryModal({
       );
     }
 
-    // Max Angle (if available)
-    const angle = session.maxAngle || session.angle;
-    if (angle) {
-      stats.push(
-        <div
-          key="maxAngle"
-          className="bg-white rounded-xl p-3 flex items-center gap-2"
-        >
-          <div className="w-8 h-8 bg-[#FFF4E5] rounded-lg flex items-center justify-center text-lg">
-            📐
-          </div>
-          <div>
-            <div className="text-xs text-[#7E8C94]">มุมสูงสุด</div>
-            <div className="text-sm font-semibold text-[#344054]">{angle}°</div>
-          </div>
-        </div>
-      );
-    }
+    // Max angle is already handled at the beginning
 
     // Score (if available)
     if (session.score) {
@@ -211,72 +231,100 @@ export default function ExerciseHistoryModal({
             </div>
           ) : (
             /* History List */
-            <div className="space-y-3">
-              {history.map((session, index) => (
-                <div
-                  key={session.id || index}
-                  className="bg-[#F3FBFC] rounded-2xl p-4 border border-[#E8F8FA]"
-                >
-                  {/* Session Header */}
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-[#40C9D5]">
-                      รอบที่ {history.length - index}
-                    </span>
-                    <span className="text-xs text-[#7E8C94]">
-                      {formatDateTime(session.timestamp)}
-                    </span>
-                  </div>
-
-                  {/* Session Stats - Dynamic Grid */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {renderSessionStats(session)}
-                  </div>
-
-                  {/* Note or Status (if available) */}
-                  {(session.note ||
-                    session.stability ||
-                    session.alignment ||
-                    session.flexibility) && (
-                    <div className="mt-3 pt-3 border-t border-[#E8F8FA]">
-                      <div className="text-sm text-[#7E8C94]">
-                        {session.stability && (
-                          <span className="mr-2">🎯 {session.stability}</span>
-                        )}
-                        {session.alignment && (
-                          <span className="mr-2">📏 {session.alignment}</span>
-                        )}
-                        {session.flexibility && (
-                          <span className="mr-2">🤸 {session.flexibility}</span>
-                        )}
-                        {session.note && <span>{session.note}</span>}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Target info (if available) */}
-                  {session.targetCount && (
-                    <div className="mt-3 pt-3 border-t border-[#E8F8FA]">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-[#7E8C94]">เป้าหมาย</span>
-                        <span
-                          className={`font-semibold ${
-                            session.count >= session.targetCount
-                              ? "text-green-500"
-                              : "text-orange-500"
-                          }`}
-                        >
-                          {session.count >= session.targetCount
-                            ? "✓ สำเร็จ"
-                            : "✗ ไม่ถึงเป้า"}
-                          <span className="text-[#7E8C94] font-normal ml-1">
-                            ({session.count}/{session.targetCount})
-                          </span>
-                        </span>
-                      </div>
-                    </div>
-                  )}
+            <div className="space-y-4">
+              {/* Overall Summary Card */}
+              <div className="bg-[#FFF4E5] rounded-2xl p-4 border border-[#FFE0A7] flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-2xl shadow-sm">
+                  🎯
                 </div>
-              ))}
+                <div>
+                  <div className="text-sm text-[#FF9500] font-medium">
+                    ค่าเฉลี่ยองศารวมทั้งหมด
+                  </div>
+                  <div className="text-2xl font-bold text-[#FF9500]">
+                    {Math.round(
+                      history.reduce((sum, session) => sum + (session.avgAngle || session.maxAngle || session.angle || 0), 0) /
+                      (history.length || 1)
+                    )}°
+                  </div>
+                </div>
+              </div>
+
+              {/* Individual Sessions */}
+              <div className="space-y-3">
+                {history.map((session, index) => (
+                  <div
+                    key={session.id || index}
+                    className="bg-[#F3FBFC] rounded-2xl p-4 border border-[#E8F8FA]"
+                  >
+                    {/* Session Header */}
+                    <div className="flex items-center justify-between mb-3 border-b border-[#E8F8FA] pb-2">
+                      <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-[#40C9D5]">
+                            รอบที่ {history.length - index}
+                          </span>
+                          {session.armType && (
+                              <span className="text-xs px-2 py-0.5 bg-white text-[#7E8C94] rounded-full border border-gray-100">
+                                  แขน{session.armType === 'right' ? 'ขวา' : 'ซ้าย'}
+                              </span>
+                          )}
+                      </div>
+                      <span className="text-xs text-[#7E8C94]">
+                        {formatDateTime(session.timestamp)}
+                      </span>
+                    </div>
+
+                    {/* Session Stats - Dynamic Grid */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {renderSessionStats(session)}
+                    </div>
+
+                    {/* Note or Status (if available) */}
+                    {(session.note ||
+                      session.stability ||
+                      session.alignment ||
+                      session.flexibility) && (
+                      <div className="mt-3 pt-3 border-t border-[#E8F8FA]">
+                        <div className="text-sm text-[#7E8C94]">
+                          {session.stability && (
+                            <span className="mr-2">🎯 {session.stability}</span>
+                          )}
+                          {session.alignment && (
+                            <span className="mr-2">📏 {session.alignment}</span>
+                          )}
+                          {session.flexibility && (
+                            <span className="mr-2">🤸 {session.flexibility}</span>
+                          )}
+                          {session.note && <span>{session.note}</span>}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Target info (if available) */}
+                    {session.targetCount && (
+                      <div className="mt-3 pt-3 border-t border-[#E8F8FA]">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-[#7E8C94]">เป้าหมาย</span>
+                          <span
+                            className={`font-semibold ${
+                              session.count >= session.targetCount
+                                ? "text-green-500"
+                                : "text-orange-500"
+                            }`}
+                          >
+                            {session.count >= session.targetCount
+                              ? "✓ สำเร็จ"
+                              : "✗ ไม่ถึงเป้า"}
+                            <span className="text-[#7E8C94] font-normal ml-1">
+                              ({session.count}/{session.targetCount})
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

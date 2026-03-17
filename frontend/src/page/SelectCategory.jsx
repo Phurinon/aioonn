@@ -69,6 +69,33 @@ export default function SelectCategory() {
             </Link>
           ))}
         </div>
+
+        {/* Daily Summary Button */}
+        <div className="mt-8 flex justify-center w-full">
+          <Link
+            to={`/daily-summary/${patientId}`}
+            className="w-full bg-gradient-to-r from-[#40C9D5] to-[#2FB5C1] text-white rounded-3xl p-6 shadow-md hover:shadow-xl transition-all hover:-translate-y-1 flex items-center justify-between group"
+          >
+            <div className="flex items-center text-left">
+              <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-2xl mr-4 group-hover:scale-110 transition-transform">
+                📈
+              </div>
+              <div>
+                <h3 className="font-bold text-xl mb-1 text-white">
+                  สรุปผลต่อวัน (Daily Summary)
+                </h3>
+                <p className="text-white/80 text-sm">
+                  ดูเปรียบเทียบองศา Before - After Exercise ของคุณ
+                </p>
+              </div>
+            </div>
+            <div className="hidden md:flex items-center text-white/50 group-hover:text-white transition-colors">
+               <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+               </svg>
+            </div>
+          </Link>
+        </div>
       </div>
     </div>
   );

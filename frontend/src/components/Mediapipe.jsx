@@ -66,6 +66,11 @@ const Mediapipe = forwardRef(function Mediapipe(
   const maxSessionAngleRef = useRef(0);
   const currentRealtimeAngleRef = useRef(0);
 
+  // Track average angle variables
+  const sumRepAnglesRef = useRef(0);
+  const completedRepsForAvgRef = useRef(0);
+  const currentRepMaxAngleRef = useRef(0);
+
   // State สำหรับรอ lock คนแรกที่เจอ
   const pendingLockRef = useRef(false);
 
@@ -97,6 +102,9 @@ const Mediapipe = forwardRef(function Mediapipe(
       setTrackingStatus("pending");
       setArmRaiseCount(0); // reset count เมื่อเริ่มใหม่
       maxSessionAngleRef.current = 0; // reset angle
+      sumRepAnglesRef.current = 0; // reset average sum
+      completedRepsForAvgRef.current = 0; // reset average count
+      currentRepMaxAngleRef.current = 0; // reset current rep max
       armWasDownRef.current = true;
       return true; // return true เพื่อให้ UI เปลี่ยนเป็นโหมดติดตาม
     },
@@ -109,9 +117,23 @@ const Mediapipe = forwardRef(function Mediapipe(
     getArmRaiseCount: () => armRaiseCount,
     getAngle: () => Math.round(maxSessionAngleRef.current),
     getRealtimeAngle: () => Math.round(currentRealtimeAngleRef.current),
+    getAverageAngle: () => {
+        // If a rep is currently active, include it in the average
+        let totalSum = sumRepAnglesRef.current;
+        let totalReps = completedRepsForAvgRef.current;
+        if (!armWasDownRef.current && currentRepMaxAngleRef.current > 0) {
+            totalSum += currentRepMaxAngleRef.current;
+            totalReps += 1;
+        }
+        if (totalReps === 0) return 0;
+        return Math.round(totalSum / totalReps);
+    },
     resetCount: () => {
       setArmRaiseCount(0);
       maxSessionAngleRef.current = 0;
+      sumRepAnglesRef.current = 0;
+      completedRepsForAvgRef.current = 0;
+      currentRepMaxAngleRef.current = 0;
       armWasDownRef.current = true;
     },
   }));
@@ -445,21 +467,41 @@ const Mediapipe = forwardRef(function Mediapipe(
         );
       }
 
+      // Keep tracking the highest angle reached during the current rep
+      if (!armWasDownRef.current && maxAngle > currentRepMaxAngleRef.current) {
+          currentRepMaxAngleRef.current = maxAngle;
+      }
+
+      // Check if threshold is met during the upward motion
       if (
         enableCountingRef.current &&
         isLockActive &&
         maxAngle >= angleThresholdRef.current &&
         armWasDownRef.current
       ) {
-        setArmRaiseCount((prev) => prev + 1);
-        armWasDownRef.current = false; // ต้องลงก่อนจึงนับได้อีก
+        armWasDownRef.current = false; // Mark that the arm is now "up" and needs to go down to count
+        currentRepMaxAngleRef.current = maxAngle; // start tracking rep max
       }
 
-      // ถือว่าแขนลงเมื่อมุมน้อยกว่าค่ากึ่งกลาง หรือค่าคงที่
-      // ปรับให้ยืดหยุ่นขึ้นเพื่อให้ผู้ใช้งานไม่ต้องเอาแขนลงสุดๆ ก็สามารถนับครั้งต่อไปได้
-      const resetThreshold = Math.min(60, angleThresholdRef.current - 20);
+      // ให้นับเมื่อแขนลงต่ำกว่า 30 องศา และก่อนหน้านี้ได้ยกผ่านเป้าหมายมาแล้ว
+      const resetThreshold = 30;
 
       if (enableCountingRef.current && maxAngle < resetThreshold) {
+        // ถ้าแขนเคยยกผ่านเป้าหมาย (armWasDown = false) แล้วเพิ่งเอาลงมาต่ำกว่า 30
+        if (!armWasDownRef.current) {
+            
+            // เพิ่มจำนวนครั้งตรงนี้แทน
+            setArmRaiseCount((prev) => prev + 1);
+
+            // Add the completed rep angle to the sum
+            if (currentRepMaxAngleRef.current > 0) {
+                sumRepAnglesRef.current += currentRepMaxAngleRef.current;
+                completedRepsForAvgRef.current++;
+                currentRepMaxAngleRef.current = 0;
+            }
+        }
+        
+        // เซ็ตให้รู้ว่าตอนนี้แขนลงแล้ว พร้อมสำหรับการยกครั้งต่อไป
         armWasDownRef.current = true;
       }
     }

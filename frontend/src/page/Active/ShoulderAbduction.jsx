@@ -69,6 +69,7 @@ export default function ShoulderAbduction({
     const [isFinished, setIsFinished] = useState(false);
     const [finalTime, setFinalTime] = useState(0);
     const [finalCount, setFinalCount] = useState(0);
+    const [avgAngle, setAvgAngle] = useState(0);
 
     // Session history state
     const [sessionHistory, setSessionHistory] = useState([]);
@@ -81,12 +82,23 @@ export default function ShoulderAbduction({
         getTherapyType()
             .then(res => {
                 if (res.data) {
-                    const mode = res.data.find(m => m.slug === 'shoulder-abduction');
-                    if (mode) setTherapyId(mode.id);
+                    // แยก ID ตามข้าง: ขวา (17), ซ้าย (18) สำหรับ Shoulder Abduction
+                    const targetSlug = selectedArm === 'right' ? 'shoulder-abduction-right' : 'shoulder-abduction-left';
+                    const mode = res.data.find(m => m.slug === targetSlug || (m.slug === 'shoulder-abduction' && selectedArm === 'right'));
+                    
+                    if (mode) {
+                        setTherapyId(mode.id);
+                    } else {
+                        // fallback ถ้าหา slug แยกข้างไม่เจอ ให้ใช้ ID จาก ROM Test (17, 18)
+                        setTherapyId(selectedArm === 'right' ? 17 : 18);
+                    }
                 }
             })
-            .catch(err => console.error("Error fetching therapy type:", err));
-    }, []);
+            .catch(err => {
+                console.error("Error fetching therapy type:", err);
+                setTherapyId(selectedArm === 'right' ? 17 : 18);
+            });
+    }, [selectedArm]);
 
     // Format time for display (MM:SS)
     const formatTime = (seconds) => {
@@ -178,9 +190,12 @@ export default function ShoulderAbduction({
 
         const count = mediapipeRef.current?.getArmRaiseCount() || currentCount;
         const usedTime = timeElapsed;
+        const finalAvgAngle = mediapipeRef.current?.getAverageAngle() || 0;
+        const finalMaxAngle = mediapipeRef.current?.getAngle() || 0;
 
         setFinalCount(count);
         setFinalTime(usedTime);
+        setAvgAngle(finalAvgAngle);
 
         if (mediapipeRef.current) {
             mediapipeRef.current.unlockPerson();
@@ -194,6 +209,9 @@ export default function ShoulderAbduction({
             targetCount: targetCount,
             success: count >= targetCount,
             note: count >= targetCount ? "สำเร็จตามเป้าหมาย!" : "สิ้นสุดการฝึก",
+            avgAngle: finalAvgAngle,
+            maxAngle: finalMaxAngle,
+            armType: selectedArm
         };
         setSessionHistory((prev) => [newSession, ...prev]);
 
@@ -207,7 +225,7 @@ export default function ShoulderAbduction({
                 patientId: parseInt(patientId),
                 score: count,
                 // time: usedTime,
-                angle: mediapipeRef.current?.getAngle() || 0,
+                angle: finalAvgAngle, // Save average instead of max
             };
             console.log("Saving therapy history:", data);
             await addTherapyHistory(data);
@@ -346,13 +364,37 @@ export default function ShoulderAbduction({
 
                             <div className="space-y-4 mb-6">
                                 <div className="bg-[#F3FBFC] rounded-xl p-4 flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-[#F0E8FF] rounded-full flex items-center justify-center text-2xl">
-                                        ⏱️
+                                    <div className="w-12 h-12 bg-[#FFF4E5] rounded-full flex items-center justify-center text-2xl">
+                                        🎯
                                     </div>
                                     <div>
-                                        <div className="text-sm text-[#7E8C94]">เวลาที่ใช้ทั้งหมด</div>
-                                        <div className="text-xl font-bold text-[#344054]">
-                                            {formatTime(finalTime)}
+                                        <div className="text-sm text-[#7E8C94]">
+                                            ค่าเฉลี่ยองศาที่ทำได้
+                                        </div>
+                                        <div className="text-xl font-bold">
+                                            <span
+                                                className={
+                                                    avgAngle >= threshold
+                                                        ? "text-blue-500"
+                                                        : avgAngle >= threshold - 15 
+                                                            ? "text-green-500" 
+                                                            : "text-orange-500"
+                                                }
+                                            >
+                                                {avgAngle}°
+                                            </span>
+                                            <span className="text-[#7E8C94] font-normal text-sm ml-1">
+                                                (เป้าหมาย {threshold}°)
+                                            </span>
+                                            <div className="text-sm mt-0.5 font-medium">
+                                                {avgAngle >= threshold ? (
+                                                    <span className="text-blue-500">🎉 สุดยอด! ดีกว่าเป้าหมาย</span>
+                                                ) : avgAngle >= threshold - 15 ? (
+                                                    <span className="text-green-500">👍 เยี่ยมมาก! เกือบทะลุเป้า</span>
+                                                ) : (
+                                                    <span className="text-orange-500">💪 พยายามอีกนิดนึงนะ สู้ๆ!</span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -384,6 +426,18 @@ export default function ShoulderAbduction({
                                                     (+{finalCount - targetCount} ครั้ง!)
                                                 </span>
                                             )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-[#F3FBFC] rounded-xl p-4 flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-[#F0E8FF] rounded-full flex items-center justify-center text-2xl">
+                                        ⏱️
+                                    </div>
+                                    <div>
+                                        <div className="text-sm text-[#7E8C94]">เวลาที่ใช้ทั้งหมด</div>
+                                        <div className="text-xl font-bold text-[#344054]">
+                                            {formatTime(finalTime)}
                                         </div>
                                     </div>
                                 </div>

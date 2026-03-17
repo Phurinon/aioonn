@@ -20,6 +20,7 @@ import Register from "../page/Register.jsx";
 import Profile from "../page/Profile.jsx";
 import TherapyHistory from "../page/TherapyHistory.jsx";
 import Summary from "../page/Summary.jsx";
+import DailySummary from "../page/DailySummary.jsx";
 import DailyRomTesting from "../page/DailyRomTesting.jsx";
 import RoutineList from "../page/Preset/RoutineList.jsx";
 import RoutineBuilder from "../page/Preset/RoutineBuilder.jsx";
@@ -157,6 +158,10 @@ const routes = [
       {
         path: "/summary/:patientId",
         element: <Summary />,
+      },
+      {
+        path: "/daily-summary/:patientId",
+        element: <DailySummary />,
       },
     ],
   },

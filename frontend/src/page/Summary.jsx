@@ -332,9 +332,10 @@ function Summary() {
                       {mode.title}
                     </h4>
                     {chartData.length > 0 ? (
-                      <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart
+                      <div className="h-64 w-full overflow-x-auto overflow-y-hidden rounded-xl">
+                        <div style={{ minWidth: `${Math.max(600, chartData.length * 60)}px`, height: '100%' }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart
                             data={chartData}
                             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                           >
@@ -422,6 +423,7 @@ function Summary() {
                             )}
                           </LineChart>
                         </ResponsiveContainer>
+                        </div>
                       </div>
                     ) : (
                       <div className="h-40 flex flex-col items-center justify-center text-gray-400">
