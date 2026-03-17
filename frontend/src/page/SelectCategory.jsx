@@ -8,15 +8,19 @@ export default function SelectCategory() {
   // Mock data for categories
   const categories = ["active", "passive", "preset"];
 
-  // Check for Daily ROM Test requirement
+  // Check for Daily ROM Test requirement (reset at midnight)
   useEffect(() => {
     const lastTestTime = localStorage.getItem(`lastDailyRomTest_${patientId}`);
-    const now = Date.now();
-    const tenHours = 10 * 60 * 60 * 1000; // 10 hours for testing
+    if (lastTestTime) {
+      const lastDate = new Date(parseInt(lastTestTime)).toLocaleDateString('en-CA');
+      const today = new Date().toLocaleDateString('en-CA');
 
-    if (!lastTestTime || (now - parseInt(lastTestTime) > tenHours)) {
-      navigate(`/daily-rom-test/${patientId}`);
+      if (lastDate === today) {
+        return; // Already done today
+      }
     }
+    // Not done today or no record, force test
+    navigate(`/daily-rom-test/${patientId}`);
   }, [patientId, navigate]);
 
   // Mapping Category ชื่อใหม่

@@ -50,7 +50,7 @@ function DailySummary() {
         let targetHistory = history;
         if (patientId) {
           targetHistory = history.filter(
-            (item) => item.patientId === Number(patientId),
+            (item) => item.patientId == patientId,
           );
         }
 
@@ -63,10 +63,13 @@ function DailySummary() {
             .filter(item => {
               const category = (item.therapyTypes?.category || "").toLowerCase();
               const title = (item.therapyTypes?.title || "").toLowerCase();
-              return category !== 'daily' && category !== 'baseline' && !title.includes('ทดสอบ');
+              const score = Number(item.score) || 0;
+
+              // รอบการฝึกจริงต้องมีคะแนน (score > 0) หรือไม่ได้อยู่ในหมวดทดสอบ
+              return score > 0 || !(category === 'daily' || category === 'baseline' || title.includes('ทดสอบ'));
             })
             .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); // เรียงเก่าไปใหม่
-          
+
           const last5 = activeOnly.slice(-5);
           if (last5.length === 0) return null;
 
@@ -77,15 +80,16 @@ function DailySummary() {
           return { avg, diff, percent, count: last5.length };
         };
 
+        // รหัส ID ของท่าทางทดสอบ (Daily ROM) ที่เราทราบค่าที่แน่นอน
+        const dailyRomIds = {
+          'shoulder-flexion': [15, 16],
+          'shoulder-abduction': [17, 18],
+          'elbow-rotation': [19, 20]
+        };
+
         activeModes.forEach((mode) => {
           const modeSlug = mode.slug.toLowerCase();
           const modeTitle = mode.title.toLowerCase();
-          
-          // สร้างคีย์เวิร์ดสำหรับการค้นหา (เช่น flexion, ยกแขน, หน้า)
-          const keywords = [
-            modeSlug.split('-').pop(), // flexion, abduction, rotation
-            ...modeTitle.replace('ด้าน', '').split(' ') // ยกแขน, หน้า
-          ].filter(k => k.length > 2);
 
           // 1. ค้นหาประเภทท่าทางทั้งหมดที่เกี่ยวข้องกับ Mode นี้
           const modeTypes = therapyTypes.filter(t => {
@@ -95,25 +99,21 @@ function DailySummary() {
 
             if (slug && (slug === modeSlug || slug.includes(modeSlug))) return true;
             if (title && (title.includes(modeSlug) || title.includes(modeTitle))) return true;
-            
-            // ตรวจสอบด้วยคีย์เวิร์ด (รองรับชื่อที่ต่างกันเล็กน้อย)
-            if (keywords.some(k => title.includes(k) || slug.includes(k))) return true;
-            
+
             return false;
           });
 
           const modeTypeIds = modeTypes.map(t => t.id);
 
-          // 2. กรองประวัติที่เกี่ยวข้องกับ Mode นี้ (ดึงทุกอย่างที่เกี่ยวกับโหมดนี้)
+          // 2. กรองประวัติที่เกี่ยวข้องกับ Mode นี้
           const modeHistory = targetHistory
             .filter(item => {
               if (modeTypeIds.includes(item.therapyTypesId)) return true;
               const t = item.therapyTypes || {};
               const slug = (t.slug || "").toLowerCase();
               const title = (t.title || "").toLowerCase();
-              return (slug && (slug === modeSlug || slug.includes(modeSlug))) || 
-                     (title && (title.includes(modeSlug) || title.includes(modeTitle))) ||
-                     (keywords.some(k => title.includes(k) || slug.includes(k)));
+              return (slug && (slug === modeSlug || slug.includes(modeSlug))) ||
+                (title && (title.includes(modeSlug) || title.includes(modeTitle)));
             })
             .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
@@ -133,14 +133,12 @@ function DailySummary() {
               const category = (item.therapyTypes?.category || "").toLowerCase();
               const title = (item.therapyTypes?.title || "").toLowerCase();
               const slug = (item.therapyTypes?.slug || "").toLowerCase();
-              
-              const isTest = category === 'daily' || 
-                             category === 'baseline' || 
-                             title.includes('ทดสอบ') || 
-                             title.includes('baseline') || 
-                             title.includes('rom') ||
-                             slug.includes('test') ||
-                             slug.includes('baseline');
+              const score = Number(item.score) || 0;
+
+              const isTest = (category === 'daily' ||
+                category === 'baseline' ||
+                title.includes('ทดสอบ') ||
+                title.includes('rom')) && score === 0;
               return isTest;
             })
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0]?.angle || null;
@@ -160,8 +158,8 @@ function DailySummary() {
           if (!rightSummary && !leftSummary && !generalSummary) {
             progressText = "รอการพิชิตสถิติแรกของวัน";
             progressEmoji = "🎯";
-            encouragementText = generalBaseline 
-              ? `ทดสอบมุมองศาเรียบร้อยแล้ว (${Math.round(generalBaseline)}°) มาเริ่มฝึกเพื่อไต่ระดับให้ถึงเป้าหมายกันเถอะ! 💪` 
+            encouragementText = generalBaseline
+              ? `ทดสอบมุมองศาเรียบร้อยแล้ว (${Math.round(generalBaseline)}°) มาเริ่มฝึกเพื่อไต่ระดับให้ถึงเป้าหมายกันเถอะ! 💪`
               : "มาเริ่มฝึกวันนี้เพื่อดูความก้าวหน้าของคุณกัน!";
           } else {
             const summaries = [];
@@ -178,7 +176,7 @@ function DailySummary() {
               summaries.push(`เฉลี่ยรวม: ${Math.round(generalSummary.avg)}° (${sign}${Math.round(generalSummary.percent)}%)`);
             }
             progressText = summaries.join(" | ");
-            
+
             const maxPercent = Math.max(rightSummary?.percent ?? -999, leftSummary?.percent ?? -999, generalSummary?.percent ?? -999);
             if (maxPercent > 10) { encouragementText = `สุดยอดมาก! พัฒนาขึ้นถึง ${Math.round(maxPercent)}% เลย เก่งที่สุดครับ! 🚀`; progressEmoji = "🚀"; }
             else if (maxPercent > 5) { encouragementText = `เยี่ยมเลยครับ! พัฒนาขึ้น ${Math.round(maxPercent)}% อย่างเห็นได้ชัด สู้ต่อไปนะ 🌟`; progressEmoji = "🌟"; }
@@ -192,14 +190,23 @@ function DailySummary() {
 
           let chartData = [];
           if (viewMode === "today") {
-            const today = new Date().toLocaleDateString('en-CA');
-            const todayData = modeHistory.filter(item => new Date(item.createdAt).toLocaleDateString('en-CA') === today);
+            const now = new Date();
+            // ใช้ปี-เดือน-วันที่ เป็นตัวเปรียบเทียบ (แม่นยำกว่า string เปล่าๆ)
+            const todayStr = now.toLocaleDateString('en-CA');
             
+            const todayData = modeHistory.filter(item => {
+              const itemDateStr = new Date(item.createdAt).toLocaleDateString('en-CA');
+              return itemDateStr === todayStr;
+            });
+
             chartData = todayData
               .filter(item => {
                 const category = (item.therapyTypes?.category || "").toLowerCase();
                 const title = (item.therapyTypes?.title || "").toLowerCase();
-                return category !== 'daily' && category !== 'baseline' && !title.includes('ทดสอบ');
+                const score = Number(item.score) || 0;
+
+                // คัดเฉพาะที่เป็นการฝึกจริง (มี score หรือไม่ใช่ท่าทดสอบ)
+                return score > 0 || !(category === 'daily' || category === 'baseline' || title.includes('ทดสอบ'));
               })
               .map((item, index) => {
                 const isRight = isItemRight(item);
@@ -223,8 +230,13 @@ function DailySummary() {
               const angle = Number(item.angle) || 0;
               const category = (item.therapyTypes?.category || "").toLowerCase();
               const title = (item.therapyTypes?.title || "").toLowerCase();
-              if (category === 'daily' || category === 'baseline' || title.includes('ทดสอบ')) { grouped[d].dailyMax = Math.max(grouped[d].dailyMax, angle); }
-              else { grouped[d].activeMax = Math.max(grouped[d].activeMax, angle); }
+              const score = Number(item.score) || 0;
+
+              if ((category === 'daily' || category === 'baseline' || title.includes('ทดสอบ')) && score === 0) {
+                grouped[d].dailyMax = Math.max(grouped[d].dailyMax, angle);
+              } else {
+                grouped[d].activeMax = Math.max(grouped[d].activeMax, angle);
+              }
             });
             chartData = Object.entries(grouped).sort().map(([date, vals]) => ({
               date: new Date(date).toLocaleDateString("th-TH", { day: "numeric", month: "short" }),
@@ -407,7 +419,7 @@ function DailySummary() {
                     <div className={`p-3 rounded-xl ${mode.bg} border border-white shadow-sm`}>
                       <p className={`font-bold text-sm ${mode.text} italic text-center`}>{mData.encouragementText || "มาเริ่มฝึกวันนี้เพื่อดูความก้าวหน้าของคุณกัน!"}</p>
                     </div>
-                    
+
                     {(mData.rightSummary || mData.leftSummary) && (
                       <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200/50">
                         {['right', 'left'].map(side => {

@@ -208,7 +208,7 @@ export default function DailyRomTesting() {
             // Get user ID from localStorage or fallback to patientId
             const userStr = localStorage.getItem("user");
             const userId = userStr ? JSON.parse(userStr).id : patientId;
-            
+
             // Post each recorded step angle to the database
             const promises = steps.map(step => {
                 return addTherapyHistory({
@@ -223,9 +223,9 @@ export default function DailyRomTesting() {
             });
 
             await Promise.all(promises);
-            
+
             localStorage.setItem(`lastDailyRomTest_${patientId}`, Date.now().toString());
-            
+
             Swal.fire({
                 icon: 'success',
                 title: 'บันทึกสำเร็จ',
@@ -234,7 +234,7 @@ export default function DailyRomTesting() {
             }).then(() => {
                 navigate(`/select-category/${patientId}`, { replace: true });
             });
-            
+
         } catch (error) {
             console.error("Failed to save ROM test results:", error);
             Swal.fire({

@@ -35,15 +35,22 @@ const usePatientRomThreshold = (patientId, action) => {
             const leftHistory = history.filter(item => item.therapyTypesId === targetTypeIds.left);
             const rightHistory = history.filter(item => item.therapyTypesId === targetTypeIds.right);
 
-            const leftMax = leftHistory.length > 0 ? Math.max(...leftHistory.map(h => h.angle || 0)) : 0;
-            const rightMax = rightHistory.length > 0 ? Math.max(...rightHistory.map(h => h.angle || 0)) : 0;
+            const getLatestAngle = (hist) => {
+              if (!hist || hist.length === 0) return 0;
+              // เรียงจากใหม่ไปเก่าแล้วเอาอันแรก
+              const sorted = [...hist].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+              return sorted[0].angle || 0;
+            };
+
+            const leftMax = getLatestAngle(leftHistory);
+            const rightMax = getLatestAngle(rightHistory);
 
             if (leftMax > 0 || rightMax > 0) {
               setThresholds({
                 left: leftMax > 0 ? leftMax : fallbackThreshold,
                 right: rightMax > 0 ? rightMax : fallbackThreshold
               });
-              console.log(`[Hook] Set ${action} thresholds - Left: ${leftMax}, Right: ${rightMax} for patient ${patientId}`);
+              console.log(`[Hook] Set ${action} thresholds (Latest) - Left: ${leftMax}, Right: ${rightMax} for patient ${patientId}`);
             }
           }
         }
