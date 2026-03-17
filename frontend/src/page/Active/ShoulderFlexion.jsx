@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import Mediapipe from "../../components/Mediapipe";
 import { addTherapyHistory, getTherapyType } from "../../Functions/therapy";
 import ExerciseHistoryModal from "../../components/ExerciseHistoryModal";
-import usePatientLevelThreshold from "../../hooks/usePatientLevelThreshold";
+import usePatientRomThreshold from "../../hooks/usePatientRomThreshold";
 
 export default function ShoulderFlexion({
     isRoutineMode = false,
@@ -23,16 +23,19 @@ export default function ShoulderFlexion({
     const isProcessingFinish = useRef(false);
 
     // Settings
-    const baseThreshold = usePatientLevelThreshold(patientId);
-    const threshold = baseThreshold;
+    const thresholds = usePatientRomThreshold(patientId, 'Flexion');
 
     // Configuration states
+    const [selectedArm, setSelectedArm] = useState("right");
     const [isConfigured, setIsConfigured] = useState(isRoutineMode);
     const [targetCount, setTargetCount] = useState(presetTargetCount);
+
+    const threshold = selectedArm === 'left' ? thresholds.left : thresholds.right;
 
     // Modal states
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalTargetCount, setModalTargetCount] = useState("");
+    const [modalSelectedArm, setModalSelectedArm] = useState("right");
 
     // Running states
     const [isTracking, setIsTracking] = useState(false);
@@ -43,6 +46,7 @@ export default function ShoulderFlexion({
     // Time tracking counts UP
     const [timeElapsed, setTimeElapsed] = useState(0); 
     const [currentCount, setCurrentCount] = useState(0);
+    const [currentRealtimeAngle, setCurrentRealtimeAngle] = useState(0);
 
     // Effects for routine mode
     useEffect(() => {
@@ -96,6 +100,7 @@ export default function ShoulderFlexion({
     // Handle opening the settings modal
     const handleOpenModal = () => {
         setModalTargetCount("");
+        setModalSelectedArm(selectedArm);
         setIsModalOpen(true);
     };
 
@@ -113,6 +118,7 @@ export default function ShoulderFlexion({
         }
 
         setTargetCount(count);
+        setSelectedArm(modalSelectedArm);
         setTimeElapsed(0);
         setCurrentCount(0);
         setIsConfigured(true);
@@ -267,6 +273,8 @@ export default function ShoulderFlexion({
                         enableCounting={true}
                         angleThreshold={threshold}
                         trackingMode={trackingMode}
+                        trackedSide={selectedArm}
+                        onAngleUpdate={(angles) => setCurrentRealtimeAngle(Math.round(angles.max || 0))}
                     />
                 </div>
 
@@ -280,6 +288,18 @@ export default function ShoulderFlexion({
                                 <div className="text-sm text-[#7E8C94]">เวลาที่ใช้</div>
                                 <div className="text-2xl font-bold text-[#344054]">
                                     {formatTime(timeElapsed)}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 pt-3 border-t border-gray-100">
+                            <div className="w-10 h-10 bg-[#FFF4E5] rounded-full flex items-center justify-center text-xl">
+                                🎯
+                            </div>
+                            <div>
+                                <div className="text-sm text-[#7E8C94]">องศาปัจจุบัน / เป้าหมาย</div>
+                                <div className="text-2xl font-bold text-[#FF9500]">
+                                    {currentRealtimeAngle}° <span className="text-lg text-[#7E8C94] font-normal">/ {threshold}°</span>
                                 </div>
                             </div>
                         </div>
@@ -397,6 +417,26 @@ export default function ShoulderFlexion({
                             <p className="text-[#7E8C94] mt-1">
                                 กำหนดจำนวนครั้งเป้าหมายสำหรับการฝึกนี้
                             </p>
+                        </div>
+
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-[#344054] mb-2">
+                                เลือกแขนที่ต้องการฝึก
+                            </label>
+                            <div className="flex bg-gray-100 rounded-xl p-1">
+                                <button
+                                    className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${modalSelectedArm === 'left' ? 'bg-white shadow text-[#40C9D5]' : 'text-gray-500 hover:text-gray-700'}`}
+                                    onClick={() => setModalSelectedArm('left')}
+                                >
+                                    แขนซ้าย
+                                </button>
+                                <button
+                                    className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${modalSelectedArm === 'right' ? 'bg-white shadow text-[#40C9D5]' : 'text-gray-500 hover:text-gray-700'}`}
+                                    onClick={() => setModalSelectedArm('right')}
+                                >
+                                    แขนขวา
+                                </button>
+                            </div>
                         </div>
 
                         <div className="mb-6">

@@ -19,6 +19,7 @@ const Mediapipe = forwardRef(function Mediapipe(
     angleThreshold = 135, // องศาที่ต้องยกถึง (default 135)
     onAngleUpdate = null, // Callback sending { right, left } angles
     trackingMode = "shoulder", // "shoulder" or "elbow"
+    trackedSide = "right", // "left", "right", or "both"
   },
   ref
 ) {
@@ -36,11 +37,17 @@ const Mediapipe = forwardRef(function Mediapipe(
   // Refs to hold latest prop values for use inside closure
   const angleThresholdRef = useRef(angleThreshold);
   const enableCountingRef = useRef(enableCounting);
+  const trackedSideRef = useRef(trackedSide);
+  const trackingModeRef = useRef(trackingMode);
+  const onAngleUpdateRef = useRef(onAngleUpdate);
 
   useEffect(() => {
     angleThresholdRef.current = angleThreshold;
     enableCountingRef.current = enableCounting;
-  }, [angleThreshold, enableCounting]);
+    trackedSideRef.current = trackedSide;
+    trackingModeRef.current = trackingMode;
+    onAngleUpdateRef.current = onAngleUpdate;
+  }, [angleThreshold, enableCounting, trackedSide, trackingMode, onAngleUpdate]);
 
   // Person tracking hook สำหรับ assisted mode
   const {
@@ -57,6 +64,7 @@ const Mediapipe = forwardRef(function Mediapipe(
 
   // Track max angle for the session
   const maxSessionAngleRef = useRef(0);
+  const currentRealtimeAngleRef = useRef(0);
 
   // State สำหรับรอ lock คนแรกที่เจอ
   const pendingLockRef = useRef(false);
@@ -100,6 +108,7 @@ const Mediapipe = forwardRef(function Mediapipe(
     isLocked: () => isLocked || pendingLockRef.current,
     getArmRaiseCount: () => armRaiseCount,
     getAngle: () => Math.round(maxSessionAngleRef.current),
+    getRealtimeAngle: () => Math.round(currentRealtimeAngleRef.current),
     resetCount: () => {
       setArmRaiseCount(0);
       maxSessionAngleRef.current = 0;
@@ -372,46 +381,51 @@ const Mediapipe = forwardRef(function Mediapipe(
       const rightForearmAngle = calculateForearmAngle(rightElbow, flippedLandmarks[16]); // 16 = Right Wrist
       const leftForearmAngle = calculateForearmAngle(leftElbow, flippedLandmarks[15]);  // 15 = Left Wrist
 
-      // ใช้มุมที่สูงกว่า (แขนข้างใดข้างหนึ่งก็ได้) -- Keep existing logic for Max but it's mostly for shoulder
+      // ใช้มุมที่สูงกว่า (แขนข้างใดข้างหนึ่งก็ได้) หรือตามที่กำหนดใน trackedSide
       let maxAngle = 0;
 
-      if (trackingMode === "elbow") {
+      if (trackingModeRef.current === "elbow") {
         // Elbow Rotation / External Rotation Logic
-        // Similar to DailyRomTesting: 0 (Down) to 180 (Up).
-        // We want to track rotation outward.
-        // Assuming elbow is at side, forearm moves from belly (internal) to side (external).
-        // Let's use the logic from DailyRomTesting which seemed to work for "External Rotation".
-
         const calcScore = (rawForearm) => {
           let val = (rawForearm || 0) + 90;
           if (val < 0) val = 0;
           if (val > 180) val = 180;
-          return 180 - val; // Inverted: Up=0, Down=180. Wait, check DailyRomTesting again.
+          return 180 - val;
         };
 
-        // DailyRomTesting: Start (Up) = 0. End (Down) = 180.
-        // But for rotation, we usually want 0 to be "in" and 90 to be "out".
-        // Let's stick to the raw forearm angle for now or the same metric if it worked for the user before.
-        // DailyRom used: Score = 180 - ForearmAngle.
-
-        // Check Shoulder Angle Constraint (Must be 70-120)
-        // If shoulder is not raised, we don't count the rotation score.
         const isRightShoulderValid = rightAngle >= 70 && rightAngle <= 120;
         const isLeftShoulderValid = leftAngle >= 70 && leftAngle <= 120;
 
         const rightScore = isRightShoulderValid ? calcScore(rightForearmAngle) : 0;
         const leftScore = isLeftShoulderValid ? calcScore(leftForearmAngle) : 0;
 
-        maxAngle = Math.max(rightScore, leftScore);
+        if (trackedSideRef.current === "left") {
+          maxAngle = leftScore;
+        } else if (trackedSideRef.current === "right") {
+          maxAngle = rightScore;
+        } else {
+          maxAngle = Math.max(rightScore, leftScore);
+        }
 
       } else {
         // Default: Shoulder (Flexion/Abduction)
-        maxAngle = Math.max(rightAngle || 0, leftAngle || 0);
+        const rAngle = rightAngle || 0;
+        const lAngle = leftAngle || 0;
+
+        if (trackedSideRef.current === "left") {
+          maxAngle = lAngle;
+        } else if (trackedSideRef.current === "right") {
+          maxAngle = rAngle;
+        } else {
+          maxAngle = Math.max(rAngle, lAngle);
+        }
       }
 
       // Send angles to parent
-      if (onAngleUpdate) {
-        onAngleUpdate({
+      currentRealtimeAngleRef.current = maxAngle;
+
+      if (onAngleUpdateRef.current) {
+        onAngleUpdateRef.current({
           right: rightAngle || 0,
           left: leftAngle || 0,
           rightForearm: rightForearmAngle || 0,

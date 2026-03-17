@@ -63,6 +63,23 @@ export const getTherapyHistoryByUserId = async (userId) => {
   }
 };
 
+export const getTherapyHistoryByPatientId = async (patientId) => {
+  try {
+    const response = await axios.get(
+      `${API_URL}/therapy/history/listBy/${patientId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+};
+
 export const addTherapyType = async (data) => {
   try {
     const response = await axios.post(`${API_URL}/therapy/add-type`, data, {
