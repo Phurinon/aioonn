@@ -38,7 +38,8 @@ export default function RoutineBuilder() {
                     setSteps(steps.map(s => ({
                         therapyTypeId: s.therapyTypeId,
                         targetCount: s.targetCount || 10,
-                        weight: s.weight || 0
+                        weight: s.weight || 0,
+                        side: s.side || "right"
                     })));
                 } catch (error) {
                     console.error("Error fetching routine:", error);
@@ -58,7 +59,8 @@ export default function RoutineBuilder() {
         setSteps([...steps, {
             therapyTypeId: firstTherapyId,
             targetCount: 10,
-            weight: 0
+            weight: 0,
+            side: "right"
         }]);
     };
 
@@ -80,7 +82,7 @@ export default function RoutineBuilder() {
             Swal.fire({
                 icon: 'warning',
                 title: 'แจ้งเตือน',
-                text: 'กรุณาระบุชื่อรูทีน',
+                text: 'กรุณาระบุชื่อโปรแกรมการออกกำลังกาย',
                 confirmButtonColor: '#40C9D5'
             });
             return;
@@ -126,7 +128,7 @@ export default function RoutineBuilder() {
             <div className="w-full max-w-4xl mx-auto px-6 py-16">
                 <div className="mb-10">
                     <h1 className="text-[32px] font-bold text-[#344054] mb-2">
-                        {routineId ? "แก้ไขรูทีน" : "สร้างรูทีนการฝึกใหม่"}
+                        {routineId ? "แก้ไขโปรแกรมการออกกำลังกาย" : "สร้างโปรแกรมการออกกำลังกายใหม่"}
                     </h1>
                     <p className="text-[#7E8C94]">กำหนดลำดับท่าทางและเป้าหมายในแต่ละรอบ</p>
                 </div>
@@ -135,12 +137,12 @@ export default function RoutineBuilder() {
                     {/* Metadata */}
                     <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 space-y-4">
                         <div>
-                            <label className="block text-sm font-semibold text-[#344054] mb-2">ชื่อรูทีน</label>
+                            <label className="block text-sm font-semibold text-[#344054] mb-2">ตั้งชื่อโปรแกรมการออกกำลังกาย</label>
                             <input
                                 type="text"
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                placeholder="เช่น รูทีนตอนเช้า, ไหล่และศอก"
+                                placeholder="เช่น โปรแกรมตอนเช้า, บริหารไหล่และศอก"
                                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#40C9D5] outline-none transition"
                             />
                         </div>
@@ -149,7 +151,7 @@ export default function RoutineBuilder() {
                             <textarea
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
-                                placeholder="รายละเอียดสั้นๆ เกี่ยวกับชุดการฝึกนี้"
+                                placeholder="รายละเอียดสั้นๆ เกี่ยวกับโปรแกรมการฝึกนี้"
                                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#40C9D5] outline-none transition h-24 resize-none"
                             />
                         </div>
@@ -206,6 +208,26 @@ export default function RoutineBuilder() {
                                         </div>
 
                                         <div>
+                                            <label className="block text-xs font-bold text-[#7E8C94] uppercase mb-1">ข้างที่ฝึก</label>
+                                            <div className="flex bg-gray-50 p-1 rounded-xl h-[38px]">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => updateStep(index, "side", "left")}
+                                                    className={`flex-1 text-[11px] font-bold rounded-lg transition-all ${step.side === 'left' ? 'bg-white text-[#40C9D5] shadow-sm' : 'text-gray-400'}`}
+                                                >
+                                                    ซ้าย
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => updateStep(index, "side", "right")}
+                                                    className={`flex-1 text-[11px] font-bold rounded-lg transition-all ${step.side === 'right' ? 'bg-white text-[#40C9D5] shadow-sm' : 'text-gray-400'}`}
+                                                >
+                                                    ขวา
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div>
                                             <label className="block text-xs font-bold text-[#7E8C94] uppercase mb-1">จำนวน (ครั้ง)</label>
                                             <input
                                                 type="number"
@@ -250,7 +272,7 @@ export default function RoutineBuilder() {
                             type="submit"
                             className="flex-[2] py-4 bg-[#40C9D5] text-white font-bold rounded-2xl hover:bg-[#2BA8B4] transition shadow-lg"
                         >
-                            บันทึกรูทีน
+                            บันทึกโปรแกรม
                         </button>
                     </div>
                 </form>

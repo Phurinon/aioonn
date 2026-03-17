@@ -9,14 +9,13 @@ export default function ShoulderAbduction({
     isRoutineMode = false,
     autoStart = true,
     presetTargetCount = 0,
-    onComplete = null
+    presetSide = "right",
+    onComplete = null,
+    isTransitioning = false,
+    routineResults = []
 }) {
     const { patientId } = useParams();
     const mediapipeRef = useRef(null);
-
-    const modeTitle = "Shoulder Abduction (กางแขนออก)";
-    const trackingMode = "shoulder";
-    const description = "กางแขนออกไปด้านข้างให้สูงที่สุด";
 
     const timerIntervalRef = useRef(null);
     const countdownIntervalRef = useRef(null);
@@ -26,7 +25,13 @@ export default function ShoulderAbduction({
     const thresholds = usePatientRomThreshold(patientId, 'Abduction');
 
     // Configuration states
-    const [selectedArm, setSelectedArm] = useState("right");
+    const [selectedArm, setSelectedArm] = useState(isRoutineMode ? presetSide : "right");
+
+    const baseTitle = "Shoulder Abduction (กางแขนออก)";
+    const sideText = selectedArm === 'left' ? 'ด้านซ้าย' : 'ด้านขวา';
+    const modeTitle = baseTitle.replace(')', sideText + ')');
+    const trackingMode = "shoulder";
+    const description = "กางแขนออกไปด้านข้างให้สูงที่สุด";
     const [isConfigured, setIsConfigured] = useState(isRoutineMode);
     const [targetCount, setTargetCount] = useState(presetTargetCount);
 
@@ -42,6 +47,7 @@ export default function ShoulderAbduction({
     const [isCountdown, setIsCountdown] = useState(false);
     const [countdownValue, setCountdownValue] = useState(3);
     const [isRunning, setIsRunning] = useState(false);
+    const [isWaitingAutoStart, setIsWaitingAutoStart] = useState(false);
     
     // Time tracking counts UP
     const [timeElapsed, setTimeElapsed] = useState(0); 
@@ -57,7 +63,9 @@ export default function ShoulderAbduction({
 
             // Start automatically in routine mode if requested
             if (autoStart) {
+                setIsWaitingAutoStart(true);
                 const timer = setTimeout(() => {
+                    setIsWaitingAutoStart(false);
                     handleStart();
                 }, 3000);
                 return () => clearTimeout(timer);
@@ -215,8 +223,6 @@ export default function ShoulderAbduction({
         };
         setSessionHistory((prev) => [newSession, ...prev]);
 
-        setIsFinished(true);
-
         try {
             const user = JSON.parse(localStorage.getItem("user") || "{}");
             const data = {
@@ -233,12 +239,17 @@ export default function ShoulderAbduction({
             console.error("Error saving therapy history:", error);
         }
 
-        // Auto transition for routine mode
         if (isRoutineMode && onComplete) {
-            setTimeout(() => {
-                onComplete({ count, time: usedTime });
-            }, 2000); // 2 second delay to see the result
+            onComplete({ 
+                count, 
+                time: usedTime,
+                maxAngle: finalMaxAngle,
+                avgAngle: finalAvgAngle
+            });
+            return; // Exit early to avoid showing the modal below
         }
+
+        setIsFinished(true);
     }, [currentCount, timeElapsed, targetCount, patientId, isRoutineMode, onComplete, therapyId]);
 
     // Time elapsed effect
@@ -582,15 +593,15 @@ export default function ShoulderAbduction({
                         </button>
                         <button
                             onClick={isRunning ? handleStop : handleStart}
-                            disabled={!isConfigured || isCountdown}
-                            className={`px-8 py-3 font-semibold rounded-lg transition shadow-md min-w-[120px] ${!isConfigured || isCountdown
+                            disabled={!isConfigured || isCountdown || isTransitioning || isFinished || isWaitingAutoStart}
+                            className={`px-8 py-3 font-semibold rounded-lg transition shadow-md min-w-[120px] ${!isConfigured || isCountdown || isTransitioning || isFinished || isWaitingAutoStart
                                 ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                                 : isRunning
                                     ? "bg-red-500 text-white hover:bg-red-600"
                                     : "bg-[#40C9D5] text-white hover:bg-[#2BA8B4]"
                                 }`}
                         >
-                            {isRunning ? "หยุด" : "เริ่ม"}
+                            {isRunning ? "หยุด" : (isTransitioning || isWaitingAutoStart) ? "เตรียมตัว..." : "เริ่ม"}
                         </button>
                     </div>
                 </div>
@@ -599,9 +610,9 @@ export default function ShoulderAbduction({
             <ExerciseHistoryModal
                 isOpen={isHistoryModalOpen}
                 onClose={() => setIsHistoryModalOpen(false)}
-                history={sessionHistory}
-                exerciseName={modeTitle}
-                exerciseIcon="⏱️"
+                history={isRoutineMode ? routineResults.map(r => ({ ...r, duration: r.time, timestamp: new Date().toISOString() })) : sessionHistory}
+                exerciseName={isRoutineMode ? "สรุปผลรูทีน (ปัจจุบัน)" : modeTitle}
+                exerciseIcon={isRoutineMode ? "📋" : "⏱️"}
             />
         </div>
     );

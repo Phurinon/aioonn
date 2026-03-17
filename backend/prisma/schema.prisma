@@ -103,6 +103,7 @@ model RoutineStep {
   targetCount   Int?
   targetTime    Int?
   weight        Float?
+  side          String?   @default("right")
 
   routine       Routine      @relation(fields: [routineId], references: [id])
   therapyType   TherapyTypes @relation(fields: [therapyTypeId], references: [id])

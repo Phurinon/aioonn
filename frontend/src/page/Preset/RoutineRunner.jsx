@@ -20,6 +20,8 @@ export default function RoutineRunner() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isFinished, setIsFinished] = useState(false);
+    const [isTransitioning, setIsTransitioning] = useState(false);
+    const [stepResults, setStepResults] = useState([]);
 
     useEffect(() => {
         const fetchRoutine = async () => {
@@ -40,40 +42,48 @@ export default function RoutineRunner() {
     }, [routineId]);
 
     const handleStepComplete = useCallback((result) => {
-        console.log(`Step ${currentStepIndex} completed with result:`, result);
+        const currentStep = routine.steps[currentStepIndex];
+        const stepName = currentStep.therapyType?.title || "ไม่ทราบชื่อท่า";
+        
+        const sideText = currentStep.side === 'left' ? 'ด้านซ้าย' : 'ด้านขวา';
+        const formattedTitle = stepName.includes(')') 
+            ? stepName.replace(')', sideText + ')') 
+            : `${stepName} (${sideText})`;
+
+        // Add result to array
+        setStepResults(prev => [...prev, {
+            title: formattedTitle,
+            count: result.count,
+            time: result.time,
+            maxAngle: result.maxAngle,
+            avgAngle: result.avgAngle
+        }]);
 
         if (currentStepIndex < routine.steps.length - 1) {
-            // Move to next step
-            setCurrentStepIndex(prev => prev + 1);
+            // Move to next step with transition
+            setIsTransitioning(true);
+            setTimeout(() => {
+                setCurrentStepIndex(prev => prev + 1);
+                setIsTransitioning(false);
+            }, 3000); // 3-second transition
         } else {
             // Routine finished
             setIsFinished(true);
         }
     }, [currentStepIndex, routine]);
 
+    const handleRestart = () => {
+        setCurrentStepIndex(0);
+        setStepResults([]);
+        setIsFinished(false);
+        setIsTransitioning(false);
+    };
+
     if (loading) return <div className="flex items-center justify-center h-screen font-bold text-xl">กำลังเตรียมระบบกรูทีน...</div>;
     if (error) return <div className="flex flex-col items-center justify-center h-screen">
         <p className="text-red-500 mb-4">{error}</p>
         <button onClick={() => navigate("/routine/list")} className="px-4 py-2 bg-[#40C9D5] text-white rounded-lg">กลับหน้าหลัก</button>
     </div>;
-
-    if (isFinished) {
-        return (
-            <div className="flex flex-col items-center justify-center h-[calc(100vh-73px)] bg-[#F3FBFC]">
-                <div className="bg-white p-12 rounded-3xl shadow-xl text-center max-w-lg w-full">
-                    <div className="text-6xl mb-6">🎉</div>
-                    <h1 className="text-3xl font-bold text-[#344054] mb-2">ยินดีด้วย!</h1>
-                    <p className="text-[#7E8C94] mb-8 text-lg">คุณทำรูทีน "{routine.name}" ครบทุกขั้นตอนแล้ว</p>
-                    <button
-                        onClick={() => navigate(`/activity/${patientId}/routine/list`)}
-                        className="w-full py-4 bg-[#40C9D5] text-white font-bold rounded-2xl hover:bg-[#2BA8B4] transition shadow-lg text-lg"
-                    >
-                        กลับสู่รายการรูทีน
-                    </button>
-                </div>
-            </div>
-        );
-    }
 
     const currentStep = routine.steps[currentStepIndex];
     if (!currentStep) return null;
@@ -92,9 +102,12 @@ export default function RoutineRunner() {
         const props = {
             key: currentStepIndex,
             isRoutineMode: true,
+            isTransitioning: isTransitioning,
             autoStart: currentStepIndex > 0,
             presetTargetCount: currentStep.targetCount,
-            onComplete: handleStepComplete
+            presetSide: currentStep.side || "right",
+            onComplete: handleStepComplete,
+            routineResults: stepResults
         };
 
         const slug = currentStep.therapyType?.slug;
@@ -150,13 +163,42 @@ export default function RoutineRunner() {
             <div className="flex-1 relative">
                 {renderExercise()}
 
-                {/* Step Overlays / Controls if needed */}
-                <div className="absolute top-4 left-4 z-[60]">
-                    <div className="bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl shadow-lg border border-white/50">
-                        <span className="text-xs font-bold text-[#7E8C94] uppercase tracking-wider block mb-1">ท่าปัจจุบัน</span>
-                        <span className="text-lg font-bold text-[#40C9D5]">{currentStep.therapyType?.title || "กำลังฝึก..."}</span>
+                {/* Congratulations Overlay */}
+                {isFinished && (
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center z-[100] animate-in fade-in duration-300">
+                        <div className="bg-white p-6 rounded-[32px] shadow-2xl text-center max-w-md w-full mx-4 border border-white/20 transform animate-in zoom-in-95 duration-300">
+                            <div className="text-5xl mb-3">🏆</div>
+                            <h1 className="text-2xl font-black text-[#344054] mb-1">สรุปผลการฝึก</h1>
+                            <p className="text-[#7E8C94] mb-4 text-sm font-bold">โปรแกรม: {routine.title}</p>
+                            
+                            <div className="max-h-[220px] overflow-y-auto mb-5 space-y-2 pr-1 scrollbar-hide">
+                                {stepResults.map((res, idx) => (
+                                    <div key={idx} className="bg-[#F8FAFC] p-4 rounded-2xl border border-gray-100/50 flex flex-col gap-2">
+                                        <div className="flex justify-between items-center">
+                                            <div className="text-[#344054] font-bold text-base">{res.title}</div>
+                                            <div className="text-xl font-black text-[#40C9D5]">{res.count} <span className="text-[10px] text-[#7E8C94] uppercase tracking-tighter">ครั้ง</span></div>
+                                        </div>
+                                        
+                                        <div className="flex justify-between items-center pt-2 border-t border-gray-100/30">
+                                            <div className="flex gap-4">
+                                                <div className="text-[11px] font-bold text-[#FF9500] bg-[#FFF4E5] px-2 py-0.5 rounded-full">สูงสุด: {res.maxAngle}°</div>
+                                                <div className="text-[11px] font-bold text-[#40C9D5] bg-[#E8F8FA] px-2 py-0.5 rounded-full">เฉลี่ย: {res.avgAngle}°</div>
+                                            </div>
+                                            <div className="text-[10px] text-[#7E8C94] font-medium">{Math.floor(res.time / 60)}:{(res.time % 60).toString().padStart(2, '0')} น.</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            <button
+                                onClick={handleRestart}
+                                className="w-full py-4 bg-[#40C9D5] text-white font-bold rounded-2xl hover:bg-[#2BA8B4] transition-all active:scale-[0.98] shadow-lg text-lg"
+                            >
+                                ปิด
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

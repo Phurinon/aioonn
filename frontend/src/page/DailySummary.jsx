@@ -100,7 +100,12 @@ function DailySummary() {
             const title = (t.title || "").toLowerCase();
 
             if (slug && (slug === modeSlug || slug.includes(modeSlug))) return true;
-            if (title && (title.includes(modeSlug) || title.includes(modeTitle) || title.includes('กาง') || title.includes('หมุน'))) return true;
+            if (title && (title.includes(modeSlug) || title.includes(modeTitle))) return true;
+
+            // กรองตาม Keyword เฉพาะรายการท่าที่เราระบุ
+            if (modeSlug === 'shoulder-flexion' && title.includes('ยกแขน')) return true;
+            if (modeSlug === 'shoulder-abduction' && title.includes('กาง')) return true;
+            if (modeSlug === 'elbow-rotation' && title.includes('หมุน')) return true;
 
             return false;
           });
