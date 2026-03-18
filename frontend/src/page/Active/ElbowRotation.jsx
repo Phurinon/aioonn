@@ -17,24 +17,24 @@ export default function ElbowRotation({
     const { patientId } = useParams();
     const mediapipeRef = useRef(null);
 
+    const timerIntervalRef = useRef(null);
+    const countdownIntervalRef = useRef(null);
+    const isProcessingFinish = useRef(false);
+
+    // Configuration states
+    const [selectedArm, setSelectedArm] = useState(isRoutineMode ? presetSide : "right");
+    const [isConfigured, setIsConfigured] = useState(isRoutineMode);
+    const [targetCount, setTargetCount] = useState(presetTargetCount);
+
     const baseTitle = "Elbow Rotation (หมุนศอก)";
     const sideText = selectedArm === 'left' ? 'ด้านซ้าย' : 'ด้านขวา';
     const modeTitle = baseTitle.replace(')', sideText + ')');
     const trackingMode = "elbow";
     const description = "งอศอกและหมุนแขนเข้า-ออก";
 
-    const timerIntervalRef = useRef(null);
-    const countdownIntervalRef = useRef(null);
-    const isProcessingFinish = useRef(false);
-
     // Settings
     // Use the max achieved rotation from daily testing, fallback to 150
     const thresholds = usePatientRomThreshold(patientId, 'ExternalRotation');
-
-    // Configuration states
-    const [selectedArm, setSelectedArm] = useState(isRoutineMode ? presetSide : "right");
-    const [isConfigured, setIsConfigured] = useState(isRoutineMode);
-    const [targetCount, setTargetCount] = useState(presetTargetCount);
 
     const threshold = (selectedArm === 'left' ? thresholds.left : thresholds.right) || 150;
 

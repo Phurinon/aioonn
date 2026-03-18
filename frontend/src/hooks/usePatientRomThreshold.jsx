@@ -47,10 +47,10 @@ const usePatientRomThreshold = (patientId, action) => {
 
             if (leftMax > 0 || rightMax > 0) {
               setThresholds({
-                left: leftMax > 0 ? leftMax : fallbackThreshold,
-                right: rightMax > 0 ? rightMax : fallbackThreshold
+                left: leftMax > 0 ? Math.max(0, leftMax - 5) : fallbackThreshold,
+                right: rightMax > 0 ? Math.max(0, rightMax - 5) : fallbackThreshold
               });
-              console.log(`[Hook] Set ${action} thresholds (Latest) - Left: ${leftMax}, Right: ${rightMax} for patient ${patientId}`);
+              console.log(`[Hook] Set ${action} thresholds (Latest -5 deg) - Left: ${Math.max(0, leftMax - 5)}, Right: ${Math.max(0, rightMax - 5)} for patient ${patientId}`);
             }
           }
         }
