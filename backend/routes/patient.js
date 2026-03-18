@@ -270,4 +270,31 @@ router.get("/patient/symptoms/:id", async (req, res) => {
   }
 });
 
+// Bulk Delete Patients
+router.post("/patient/bulk-delete", async (req, res) => {
+  try {
+    const { patientIds } = req.body;
+    if (!Array.isArray(patientIds) || patientIds.length === 0) {
+      return res.status(400).json({ message: "Patient IDs are required" });
+    }
+
+    const deleteResult = await prisma.patients.updateMany({
+      where: {
+        id: { in: patientIds.map(id => parseInt(id)) },
+        deletedAt: null
+      },
+      data: { deletedAt: new Date() },
+    });
+
+    logger.info(`Bulk delete patients success: ${deleteResult.count} items`);
+    return res.status(200).json({
+      message: `Successfully deleted ${deleteResult.count} patients`,
+      count: deleteResult.count
+    });
+  } catch (error) {
+    logger.error("Bulk delete patients error", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;

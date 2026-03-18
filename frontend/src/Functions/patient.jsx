@@ -130,3 +130,21 @@ export const updatePatient = async (id, data) => {
     throw error;
   }
 };
+
+export const bulkDeletePatients = async (patientIds) => {
+  try {
+    const response = await axios.post(`${API_URL}/patient/bulk-delete`, {
+      patientIds
+    }, {
+      ...getAuthHeaders(),
+      headers: {
+        ...getAuthHeaders().headers,
+        "Content-Type": "application/json",
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+};

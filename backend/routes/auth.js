@@ -235,4 +235,32 @@ router.put("/auth/change-password", async (req, res) => {
   }
 });
 
+// Verify Password Endpoint (for sensitive actions)
+router.post("/auth/verify-password", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password are required" });
+    }
+
+    const user = await prisma.users.findFirst({
+      where: { username: username },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid user", valid: false });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid password", valid: false });
+    }
+
+    return res.status(200).json({ message: "Password verified", valid: true });
+  } catch (error) {
+    logger.error("Verify password failed:", error);
+    return res.status(500).json({ message: "Server error", valid: false });
+  }
+});
+
 module.exports = router;
