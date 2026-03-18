@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext } from "react-router-dom";
 import { ClipboardDocumentListIcon, TrashIcon, XMarkIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 import PatientCard from "../components/PatientCard";
 import AddPatientModal from "../components/AddPatientModal";
+import EditPatientModal from "../components/EditPatientModal";
 import { getPatients, bulkDeletePatients } from "../Functions/patient";
 import { verifyPassword } from "../Functions/auth";
 
@@ -11,6 +12,10 @@ export default function Dashboard() {
   const [patients, setPatients] = useState([]);
   const [activeTab, setActiveTab] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // States for Edit Mode
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingPatient, setEditingPatient] = useState(null);
 
   // States for Delete Mode
   const [isDeleteMode, setIsDeleteMode] = useState(false);
@@ -74,6 +79,14 @@ export default function Dashboard() {
       newSelected.add(id);
     }
     setSelectedIds(newSelected);
+  };
+
+  const handleEdit = (id) => {
+    const target = patients.find(p => p.id === id);
+    if (target) {
+      setEditingPatient(target);
+      setIsEditModalOpen(true);
+    }
   };
 
   const handleBulkDelete = async () => {
@@ -227,6 +240,7 @@ export default function Dashboard() {
                 isDeleteMode={isDeleteMode}
                 isSelected={selectedIds.has(patient.id)}
                 onToggleSelect={() => toggleSelect(patient.id)}
+                onEdit={handleEdit}
               />
             </div>
           );
@@ -295,6 +309,12 @@ export default function Dashboard() {
       <AddPatientModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+      />
+
+      <EditPatientModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        patient={editingPatient}
       />
     </div>
   );

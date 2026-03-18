@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRightIcon, ClockIcon, ChartBarIcon } from "@heroicons/react/24/outline";
+import { ArrowRightIcon, ClockIcon, ChartBarIcon, PencilIcon } from "@heroicons/react/24/outline";
 
 export default function PatientCard({
   id,
@@ -10,6 +10,7 @@ export default function PatientCard({
   isDeleteMode = false,
   isSelected = false,
   onToggleSelect = () => {},
+  onEdit = () => {},
 }) {
   const navigate = useNavigate();
 
@@ -60,14 +61,16 @@ export default function PatientCard({
         </div>
       )}
 
-      <div className="flex justify-between items-start">
-        <h3 className={`font-bold text-base mt-1 tracking-tight transition-colors ${
-          isDeleteMode && isSelected ? "text-red-600" : "text-[#344054]"
-        }`}>
-          {name || "default name"}
-        </h3>
+      <div className="flex justify-between items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <h3 className={`font-bold text-base mt-1 tracking-tight transition-colors truncate whitespace-nowrap ${
+            isDeleteMode && isSelected ? "text-red-600" : "text-[#344054]"
+          }`} title={name}>
+            {name || "default name"}
+          </h3>
+        </div>
         {!isDeleteMode && (
-          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0">
+          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0 shrink-0">
             {/* History Button */}
             <button
               onClick={(e) => {
@@ -92,10 +95,17 @@ export default function PatientCard({
               <ChartBarIcon className="w-4 h-4" />
             </button>
 
-            {/* Navigate Arrow */}
-            <div className="w-8 h-8 rounded-full bg-[#F0F0F0] flex items-center justify-center group-hover:bg-[#40C9D5] group-hover:text-white transition">
-              <ArrowRightIcon className="w-4 h-4 text-gray-400 group-hover:text-white" />
-            </div>
+            {/* Edit Button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(id);
+              }}
+              className="w-8 h-8 rounded-full bg-[#FFF9C4] text-[#FBC02D] flex items-center justify-center hover:bg-[#FBC02D] hover:text-white transition shadow-sm z-10"
+              title="แก้ไขข้อมูลคนไข้"
+            >
+              <PencilIcon className="w-4 h-4" />
+            </button>
           </div>
         )}
       </div>

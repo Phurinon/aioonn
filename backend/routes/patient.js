@@ -151,36 +151,45 @@ router.post("/patient/add-symptom", async (req, res) => {
 router.put("/patient/update/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName } = req.body;
-    if (!id || !firstName || !lastName) {
-      logger.warn("Missing required fields");
-      return res.status(400).json({ message: "ID and patient name are required" });
+    const { firstName, lastName, symptomsId, armSide } = req.body;
+    
+    if (!id) {
+      return res.status(400).json({ message: "ID is required" });
     }
-    const patient = await prisma.patients.findFirst({
-      where: { id: parseInt(id), deletedAt: null },
-    });
-    if (!patient) {
-      logger.warn("Patient not found");
-      return res.status(404).json({ message: "Patient not found" });
-    }
-    const existingPatient = await prisma.patients.findFirst({
-      where: { firstName: firstName, lastName: lastName, deletedAt: null },
+
+    // 1. Update basic info if provided
+    const updateData = {};
+    if (firstName) updateData.firstName = firstName;
+    if (lastName) updateData.lastName = lastName;
+
+    const patient = await prisma.patients.update({
+      where: { id: parseInt(id) },
+      data: updateData,
     });
 
-    if (existingPatient) {
-      logger.warn(
-        `Update patient ID ${id} failed: Patient name already exists`
-      );
-      return res.status(400).json({ message: "Patient name already exists" });
+    // 2. Update/Upsert symptom if provided
+    if (symptomsId && armSide) {
+      await prisma.patientSymptoms.upsert({
+        where: {
+          patientId_symptomsId: {
+            patientId: parseInt(id),
+            symptomsId: parseInt(symptomsId),
+          },
+        },
+        update: {
+          armSide: armSide,
+          createdAt: new Date(),
+        },
+        create: {
+          patientId: parseInt(id),
+          symptomsId: parseInt(symptomsId),
+          armSide: armSide,
+        },
+      });
     }
-    const updatePatient = await prisma.patients.update({
-      where: { id: parseInt(id) },
-      data: { firstName, lastName },
-    });
+
     logger.info(`Update patient ID ${id} success`);
-    return res
-      .status(200)
-      .json({ message: "Update patient success", data: updatePatient });
+    return res.status(200).json({ message: "Update patient success", data: patient });
   } catch (error) {
     logger.error("Update patient failed:", error);
     return res.status(500).json({ message: "Server error" });
