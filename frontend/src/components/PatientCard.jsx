@@ -61,26 +61,27 @@ export default function PatientCard({
         </div>
       )}
 
-      <div className="flex justify-between items-start gap-3">
+      <div className="flex justify-between items-start gap-3 min-h-[40px]">
         <div className="flex-1 min-w-0">
-          <h3 className={`font-bold text-base mt-1 tracking-tight transition-colors truncate whitespace-nowrap ${
+          <h3 className={`font-bold text-[18px] leading-tight transition-colors ${
             isDeleteMode && isSelected ? "text-red-600" : "text-[#344054]"
-          }`} title={name}>
+          } truncate`} title={name}>
             {name || "default name"}
           </h3>
         </div>
+
         {!isDeleteMode && (
-          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0 shrink-0">
+          <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 shrink-0">
             {/* History Button */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 navigate(`/therapy-history/${id}`);
               }}
-              className="w-8 h-8 rounded-full bg-[#F3FBFC] text-[#40C9D5] flex items-center justify-center hover:bg-[#40C9D5] hover:text-white transition shadow-sm z-10"
+              className="w-9 h-9 rounded-xl bg-white text-[#40C9D5] border border-[#ECF8F9] flex items-center justify-center hover:bg-[#40C9D5] hover:text-white hover:border-[#40C9D5] transition shadow-sm z-10"
               title="ดูประวัติการรักษา"
             >
-              <ClockIcon className="w-4 h-4" />
+              <ClockIcon className="w-5 h-5" />
             </button>
 
             {/* Summary Button */}
@@ -89,10 +90,10 @@ export default function PatientCard({
                 e.stopPropagation();
                 navigate(`/summary/${id}`);
               }}
-              className="w-8 h-8 rounded-full bg-[#E0F2F1] text-[#009688] flex items-center justify-center hover:bg-[#B2DFDB] transition shadow-sm z-10"
+              className="w-9 h-9 rounded-xl bg-white text-[#009688] border border-[#E0F2F1] flex items-center justify-center hover:bg-[#009688] hover:text-white hover:border-[#009688] transition shadow-sm z-10"
               title="ดูสรุปผล"
             >
-              <ChartBarIcon className="w-4 h-4" />
+              <ChartBarIcon className="w-5 h-5" />
             </button>
 
             {/* Edit Button */}
@@ -101,10 +102,10 @@ export default function PatientCard({
                 e.stopPropagation();
                 onEdit(id);
               }}
-              className="w-8 h-8 rounded-full bg-[#FFF9C4] text-[#FBC02D] flex items-center justify-center hover:bg-[#FBC02D] hover:text-white transition shadow-sm z-10"
+              className="w-9 h-9 rounded-xl bg-white text-[#35B5C0] border border-[#ECF8F9] flex items-center justify-center hover:bg-[#35B5C0] hover:text-white hover:border-[#35B5C0] transition shadow-sm z-10"
               title="แก้ไขข้อมูลคนไข้"
             >
-              <PencilIcon className="w-4 h-4" />
+              <PencilIcon className="w-5 h-5" />
             </button>
           </div>
         )}
