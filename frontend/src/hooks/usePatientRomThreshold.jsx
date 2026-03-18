@@ -46,11 +46,14 @@ const usePatientRomThreshold = (patientId, action) => {
             const rightMax = getLatestAngle(rightHistory);
 
             if (leftMax > 0 || rightMax > 0) {
+              const finalLeft = leftMax > 0 ? (leftMax <= 50 ? leftMax : Math.max(0, leftMax - 5)) : fallbackThreshold;
+              const finalRight = rightMax > 0 ? (rightMax <= 50 ? rightMax : Math.max(0, rightMax - 5)) : fallbackThreshold;
+
               setThresholds({
-                left: leftMax > 0 ? Math.max(0, leftMax - 5) : fallbackThreshold,
-                right: rightMax > 0 ? Math.max(0, rightMax - 5) : fallbackThreshold
+                left: finalLeft,
+                right: finalRight
               });
-              console.log(`[Hook] Set ${action} thresholds (Latest -5 deg) - Left: ${Math.max(0, leftMax - 5)}, Right: ${Math.max(0, rightMax - 5)} for patient ${patientId}`);
+              console.log(`[Hook] Set ${action} thresholds (Latest ${leftMax > 50 || rightMax > 50 ? '-5 deg' : 'no offset'}) - Left: ${finalLeft}, Right: ${finalRight} for patient ${patientId}`);
             }
           }
         }
