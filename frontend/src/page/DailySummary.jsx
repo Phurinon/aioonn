@@ -235,8 +235,17 @@ function DailySummary() {
                 };
               });
 
-            if (chartData.length === 0 && generalBaseline > 0) {
-              chartData.push({ time: "เป้าหมาย", activeAngle: 0, targetAngle: generalBaseline, isPlaceholder: true });
+            if (chartData.length === 0) {
+              if (leftBaseline > 0) {
+                chartData.push({ time: "เป้าหมาย (ซ้าย)", activeAngle: 0, targetAngle: leftBaseline, isPlaceholder: true });
+              }
+              if (rightBaseline > 0) {
+                chartData.push({ time: "เป้าหมาย (ขวา)", activeAngle: 0, targetAngle: rightBaseline, isPlaceholder: true });
+              }
+              // Fallback ในกรณีที่ไม่เจอข้างที่แน่นอนแต่ยังพอมีค่า General (ไม่ควรเกิดขึ้นบ่อย)
+              if (chartData.length === 0 && generalBaseline > 0) {
+                chartData.push({ time: "เป้าหมาย", activeAngle: 0, targetAngle: generalBaseline, isPlaceholder: true });
+              }
             }
           } else {
             const grouped = {};
