@@ -136,9 +136,6 @@ export default function RoutineRunner() {
             {/* Header / Progress bar */}
             <div className="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm z-50">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-gray-600">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                    </button>
                     <div>
                         <h2 className="font-bold text-[#344054]">{routine.title}</h2>
                         <p className="text-xs text-[#7E8C94]">ขั้นตอนที่ {currentStepIndex + 1} จาก {routine.steps.length}</p>

@@ -544,8 +544,8 @@ export default function ShoulderAbduction({
                     <div className="flex items-center gap-4">
                         <button
                             onClick={handleOpenModal}
-                            disabled={isRunning || isCountdown}
-                            className={`px-5 py-3 font-semibold rounded-xl transition flex items-center gap-2 ${isRunning || isCountdown
+                            disabled={isRunning || isCountdown || isRoutineMode}
+                            className={`px-5 py-3 font-semibold rounded-xl transition flex items-center gap-2 ${isRunning || isCountdown || isRoutineMode
                                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                                 : "bg-[#F0E8FF] text-[#8B5CF6] hover:bg-[#E5DEFF]"
                                 }`}
