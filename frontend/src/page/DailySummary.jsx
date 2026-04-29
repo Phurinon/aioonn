@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getTherapyHistoryByUserId } from "../Functions/therapy";
+import { getTherapyHistoryByUserId, getTherapyType } from "../Functions/therapy";
 import {
   BarChart,
   Bar,
@@ -43,8 +43,8 @@ function DailySummary() {
         const history = response.data?.data || [];
 
         // Fetch all therapy types to map IDs dynamically
-        const typesResponse = await fetch("http://localhost:3000/api/therapy/list").then(r => r.json());
-        const therapyTypes = Array.isArray(typesResponse) ? typesResponse : (typesResponse.data || []);
+        const typesResponse = await getTherapyType();
+        const therapyTypes = Array.isArray(typesResponse.data) ? typesResponse.data : (typesResponse.data?.data || []);
 
         // Filter by patientId if provided
         let targetHistory = history;
