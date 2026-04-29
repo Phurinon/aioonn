@@ -12,6 +12,19 @@ const ProtectedRoute = () => {
   // This ensures we don't block the initial login redirect that contains the token
   const searchParams = new URLSearchParams(location.search);
   const urlToken = searchParams.get('token');
+  const urlUser = searchParams.get('user');
+
+  // If OAuth params exist, sync them to localStorage immediately
+  // preventing downstream components from missing the auth context on first render
+  if (urlToken && urlUser) {
+    try {
+      localStorage.setItem('token', urlToken);
+      const parsedUser = JSON.parse(urlUser);
+      localStorage.setItem('user', JSON.stringify(parsedUser));
+    } catch (e) {
+      console.error("Error parsing user from URL in ProtectedRoute", e);
+    }
+  }
 
   // If we have a token (either in storage or URL), render the child routes
   // We also check for user object in storage to be safe, but URL token takes precedence for login flow

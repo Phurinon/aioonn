@@ -7,6 +7,7 @@ import {
   EyeSlashIcon,
 } from "@heroicons/react/24/outline";
 import { login } from "../Functions/auth";
+import Swal from "sweetalert2";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -31,7 +32,12 @@ export default function Login() {
       }
     } catch (error) {
       console.error("Login failed:", error);
-      alert("เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน");
+      Swal.fire({
+        icon: 'error',
+        title: 'เข้าสู่ระบบไม่สำเร็จ',
+        text: 'กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน',
+        confirmButtonColor: '#40C9D5'
+      });
     }
   };
 

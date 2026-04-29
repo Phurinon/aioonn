@@ -17,6 +17,9 @@ const Mediapipe = forwardRef(function Mediapipe(
     enableCounting = false, // เปิด/ปิดการนับจำนวนครั้ง
     showCountOverlay = false, // แสดง count overlay ใน component หรือไม่ (default ปิด ให้หน้าจัดการเอง)
     angleThreshold = 135, // องศาที่ต้องยกถึง (default 135)
+    onAngleUpdate = null, // Callback sending { right, left } angles
+    trackingMode = "shoulder", // "shoulder" or "elbow"
+    trackedSide = "right", // "left", "right", or "both"
   },
   ref
 ) {
@@ -24,6 +27,7 @@ const Mediapipe = forwardRef(function Mediapipe(
   const canvasRef = useRef(null);
   const [currentAngle, setCurrentAngle] = useState(null);
   const [trackingStatus, setTrackingStatus] = useState("waiting"); // "waiting", "pending", "locked"
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
 
   // นับจำนวนครั้งที่ยกแขน
   const [armRaiseCount, setArmRaiseCount] = useState(0);
@@ -33,11 +37,17 @@ const Mediapipe = forwardRef(function Mediapipe(
   // Refs to hold latest prop values for use inside closure
   const angleThresholdRef = useRef(angleThreshold);
   const enableCountingRef = useRef(enableCounting);
+  const trackedSideRef = useRef(trackedSide);
+  const trackingModeRef = useRef(trackingMode);
+  const onAngleUpdateRef = useRef(onAngleUpdate);
 
   useEffect(() => {
     angleThresholdRef.current = angleThreshold;
     enableCountingRef.current = enableCounting;
-  }, [angleThreshold, enableCounting]);
+    trackedSideRef.current = trackedSide;
+    trackingModeRef.current = trackingMode;
+    onAngleUpdateRef.current = onAngleUpdate;
+  }, [angleThreshold, enableCounting, trackedSide, trackingMode, onAngleUpdate]);
 
   // Person tracking hook สำหรับ assisted mode
   const {
@@ -54,6 +64,12 @@ const Mediapipe = forwardRef(function Mediapipe(
 
   // Track max angle for the session
   const maxSessionAngleRef = useRef(0);
+  const currentRealtimeAngleRef = useRef(0);
+
+  // Track average angle variables
+  const sumRepAnglesRef = useRef(0);
+  const completedRepsForAvgRef = useRef(0);
+  const currentRepMaxAngleRef = useRef(0);
 
   // State สำหรับรอ lock คนแรกที่เจอ
   const pendingLockRef = useRef(false);
@@ -86,6 +102,9 @@ const Mediapipe = forwardRef(function Mediapipe(
       setTrackingStatus("pending");
       setArmRaiseCount(0); // reset count เมื่อเริ่มใหม่
       maxSessionAngleRef.current = 0; // reset angle
+      sumRepAnglesRef.current = 0; // reset average sum
+      completedRepsForAvgRef.current = 0; // reset average count
+      currentRepMaxAngleRef.current = 0; // reset current rep max
       armWasDownRef.current = true;
       return true; // return true เพื่อให้ UI เปลี่ยนเป็นโหมดติดตาม
     },
@@ -97,9 +116,24 @@ const Mediapipe = forwardRef(function Mediapipe(
     isLocked: () => isLocked || pendingLockRef.current,
     getArmRaiseCount: () => armRaiseCount,
     getAngle: () => Math.round(maxSessionAngleRef.current),
+    getRealtimeAngle: () => Math.round(currentRealtimeAngleRef.current),
+    getAverageAngle: () => {
+        // If a rep is currently active, include it in the average
+        let totalSum = sumRepAnglesRef.current;
+        let totalReps = completedRepsForAvgRef.current;
+        if (!armWasDownRef.current && currentRepMaxAngleRef.current > 0) {
+            totalSum += currentRepMaxAngleRef.current;
+            totalReps += 1;
+        }
+        if (totalReps === 0) return 0;
+        return Math.round(totalSum / totalReps);
+    },
     resetCount: () => {
       setArmRaiseCount(0);
       maxSessionAngleRef.current = 0;
+      sumRepAnglesRef.current = 0;
+      completedRepsForAvgRef.current = 0;
+      currentRepMaxAngleRef.current = 0;
       armWasDownRef.current = true;
     },
   }));
@@ -138,15 +172,27 @@ const Mediapipe = forwardRef(function Mediapipe(
 
     pose.onResults(onResults);
 
-    const camera = new Camera(videoRef.current, {
-      onFrame: async () => {
-        await pose.send({ image: videoRef.current });
-      },
-      width: width,
-      height: height,
-    });
+    let camera = null;
+    let isMounted = true;
 
-    camera.start();
+    // Wait for Pose WASM module to initialize before starting Camera
+    pose.initialize().then(() => {
+      if (!isMounted) return;
+      setIsModelLoaded(true);
+
+      camera = new Camera(videoRef.current, {
+        onFrame: async () => {
+          if (videoRef.current && isMounted) {
+            await pose.send({ image: videoRef.current });
+          }
+        },
+        width: width,
+        height: height,
+      });
+      camera.start();
+    }).catch(err => {
+      console.error("Failed to initialize Mediapipe Pose", err);
+    });
 
     function onResults(results) {
       const canvasCtx = canvasRef.current.getContext("2d");
@@ -344,8 +390,73 @@ const Mediapipe = forwardRef(function Mediapipe(
       const rightAngle = calculateAngle(rightHip, rightShoulder, rightElbow);
       const leftAngle = calculateAngle(leftHip, leftShoulder, leftElbow);
 
-      // ใช้มุมที่สูงกว่า (แขนข้างใดข้างหนึ่งก็ได้)
-      const maxAngle = Math.max(rightAngle || 0, leftAngle || 0);
+      // New: Calculate Forearm Angles (Absolute angle relative to horizontal)
+      // 90 = Up (Vertical), 0 = Right, 180 = Left, -90 = Down
+      const calculateForearmAngle = (elbow, wrist) => {
+        if (!elbow || !wrist) return 0;
+        // คำนวณมุมโดยอ้างอิงจากแนวตั้ง (Up = 0 deg)
+        // atan2(dx, dy) โดยที่ dy ของเราคือความต่างในแนวตั้งที่พุ่งขึ้น (elbow.y - wrist.y)
+        return Math.atan2(wrist.x - elbow.x, elbow.y - wrist.y) * 180 / Math.PI;
+      };
+
+      const rightForearmAngle = calculateForearmAngle(rightElbow, flippedLandmarks[16]); // 16 = Right Wrist
+      const leftForearmAngle = calculateForearmAngle(leftElbow, flippedLandmarks[15]);  // 15 = Left Wrist
+
+      // ใช้มุมที่สูงกว่า (แขนข้างใดข้างหนึ่งก็ได้) หรือตามที่กำหนดใน trackedSide
+      let maxAngle = 0;
+
+      if (trackingModeRef.current === "elbow") {
+        // Elbow Rotation / External Rotation Logic (0 deg = Vertical Up, 90 deg = Outward, 180 deg = Down)
+        const isRightShoulderValid = rightAngle >= 70 && rightAngle <= 120;
+        const isLeftShoulderValid = leftAngle >= 70 && leftAngle <= 120;
+
+        const rightScore = isRightShoulderValid ? Math.max(0, Math.min(180, rightForearmAngle)) : 0;
+        
+        let leftScore = 0;
+        if (isLeftShoulderValid) {
+          // สำหรับแขนซ้าย การหมุนออกคือติดลบ (0 ถึง -180)
+          // แต่หากลงไปต่ำสุด atan2 อาจคืนค่า 180 ได้ จึงต้องรองรับทั้งสองกรณี
+          if (leftForearmAngle > 0) {
+            leftScore = (leftForearmAngle > 170) ? leftForearmAngle : 0;
+          } else {
+            leftScore = -leftForearmAngle;
+          }
+        }
+
+        if (trackedSideRef.current === "left") {
+          maxAngle = Math.max(0, Math.min(180, leftScore));
+        } else if (trackedSideRef.current === "right") {
+          maxAngle = rightScore;
+        } else {
+          maxAngle = Math.max(rightScore, leftScore);
+        }
+
+      } else {
+        // Default: Shoulder (Flexion/Abduction)
+        const rAngle = rightAngle || 0;
+        const lAngle = leftAngle || 0;
+
+        if (trackedSideRef.current === "left") {
+          maxAngle = lAngle;
+        } else if (trackedSideRef.current === "right") {
+          maxAngle = rAngle;
+        } else {
+          maxAngle = Math.max(rAngle, lAngle);
+        }
+      }
+
+      // Send angles to parent
+      currentRealtimeAngleRef.current = maxAngle;
+
+      if (onAngleUpdateRef.current) {
+        onAngleUpdateRef.current({
+          right: rightAngle || 0,
+          left: leftAngle || 0,
+          rightForearm: rightForearmAngle || 0,
+          leftForearm: leftForearmAngle || 0,
+          max: maxAngle
+        });
+      }
 
       // นับเมื่อ: enableCounting=true และ กำลัง lock อยู่ และ มุม >= 165 องศา และ ก่อนหน้านี้แขนลงอยู่
       const isLockActive = isLocked || pendingLockRef.current;
@@ -358,28 +469,54 @@ const Mediapipe = forwardRef(function Mediapipe(
         );
       }
 
+      // Keep tracking the highest angle reached during the current rep
+      if (!armWasDownRef.current && maxAngle > currentRepMaxAngleRef.current) {
+          currentRepMaxAngleRef.current = maxAngle;
+      }
+
+      // Check if threshold is met during the upward motion
       if (
         enableCountingRef.current &&
         isLockActive &&
         maxAngle >= angleThresholdRef.current &&
         armWasDownRef.current
       ) {
-        setArmRaiseCount((prev) => prev + 1);
-        armWasDownRef.current = false; // ต้องลงก่อนจึงนับได้อีก
+        armWasDownRef.current = false; // Mark that the arm is now "up" and needs to go down to count
+        currentRepMaxAngleRef.current = maxAngle; // start tracking rep max
       }
 
-      // ถือว่าแขนลงเมื่อมุมน้อยกว่าค่ากึ่งกลาง หรือค่าคงที่
-      // ปรับให้ยืดหยุ่นขึ้นเพื่อให้ผู้ใช้งานไม่ต้องเอาแขนลงสุดๆ ก็สามารถนับครั้งต่อไปได้
-      const resetThreshold = Math.min(60, angleThresholdRef.current - 20);
-      
+      // ให้นับเมื่อแขนลงต่ำกว่า 30 องศา และก่อนหน้านี้ได้ยกผ่านเป้าหมายมาแล้ว
+      const resetThreshold = 30;
+
       if (enableCountingRef.current && maxAngle < resetThreshold) {
+        // ถ้าแขนเคยยกผ่านเป้าหมาย (armWasDown = false) แล้วเพิ่งเอาลงมาต่ำกว่า 30
+        if (!armWasDownRef.current) {
+            
+            // เพิ่มจำนวนครั้งตรงนี้แทน
+            setArmRaiseCount((prev) => prev + 1);
+
+            // Add the completed rep angle to the sum
+            if (currentRepMaxAngleRef.current > 0) {
+                sumRepAnglesRef.current += currentRepMaxAngleRef.current;
+                completedRepsForAvgRef.current++;
+                currentRepMaxAngleRef.current = 0;
+            }
+        }
+        
+        // เซ็ตให้รู้ว่าตอนนี้แขนลงแล้ว พร้อมสำหรับการยกครั้งต่อไป
         armWasDownRef.current = true;
       }
     }
 
     return () => {
-      camera.stop();
+      isMounted = false;
+      if (camera) {
+        camera.stop();
+      }
       pose.close();
+
+      // Clear window.Module to fix WASM 'Aborted' error on rapid remounts
+      window.Module = undefined;
     };
   }, [mode, isLocked, checkTargetPerson, getLockedBoundingBox, lockPerson]);
 
@@ -396,6 +533,46 @@ const Mediapipe = forwardRef(function Mediapipe(
         position: "relative",
       }}
     >
+      {/* Loading Overlay */}
+      {!isModelLoaded && (
+        <div
+          style={{
+            position: "absolute",
+            zIndex: 50,
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.8)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "white",
+          }}
+        >
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              border: "4px solid white",
+              borderTopColor: "transparent",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+              marginBottom: "16px",
+            }}
+          ></div>
+          <span style={{ fontSize: "18px", fontWeight: "bold" }}>
+            กำลังเตรียมระบบ และเปิดกล้อง...
+          </span>
+          <style>
+            {`
+              @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+              }
+            `}
+          </style>
+        </div>
+      )}
+
       {/* Tracking Status Badge - แสดงเมื่อ lock/pending */}
       {(trackingStatus === "locked" || trackingStatus === "pending") && (
         <div

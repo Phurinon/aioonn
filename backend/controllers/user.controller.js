@@ -1,0 +1,85 @@
+const prisma = require("../config/prisma");
+const logger = require("../logger");
+
+exports.verifyAdmin = async (req, res) => {
+  return res.status(200).json({ message: "Admin verified ok" });
+};
+
+exports.listUsers = async (req, res) => {
+  try {
+    const users = await prisma.users.findMany({ where: { deletedAt: null } });
+    return res.status(200).json(users);
+  } catch (error) {
+    logger.error("Get all users error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      logger.warn("Get user failed: Missing user ID");
+      return res.status(404).json({ message: "User ID is required" });
+    }
+    const user = await prisma.users.findFirst({ where: { id: parseInt(id), deletedAt: null } });
+    if (!user) {
+      logger.warn("User not found");
+      return res.status(404).json({ message: "User not found" });
+    }
+    logger.info(`Get user ID ${id} success`);
+    return res.status(200).json(user);
+  } catch (error) {
+    logger.error("Get user failed:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { displayName, password } = req.body;
+    if (!id) {
+      logger.warn("Missing user ID");
+      return res.status(400).json({ message: "User ID is required" });
+    }
+    const user = await prisma.users.findFirst({ where: { id: parseInt(id), deletedAt: null } });
+    if (!user) {
+      logger.warn("User not found");
+      return res.status(404).json({ message: "User not found" });
+    }
+    const updateUser = await prisma.users.update({
+      where: { id: parseInt(id) },
+      data: { displayName, password },
+    });
+    logger.info(`Update user ID ${id} success`);
+    return res.status(200).json(updateUser);
+  } catch (error) {
+    logger.error("Update user error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      logger.warn("Missing user ID");
+      return res.status(400).json({ message: "User ID is required" });
+    }
+    const user = await prisma.users.findFirst({ where: { id: parseInt(id), deletedAt: null } });
+    if (!user) {
+      logger.warn("User not found");
+      return res.status(404).json({ message: "User not found" });
+    }
+    const deleteUser = await prisma.users.update({
+      where: { id: parseInt(id) },
+      data: { deletedAt: new Date() },
+    });
+    logger.info(`Delete user ID ${id} success`);
+    return res.status(200).json({ message: "User deleted successfully", data: deleteUser });
+  } catch (error) {
+    logger.error("Delete user error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};

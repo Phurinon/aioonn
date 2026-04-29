@@ -1,5 +1,5 @@
 import React from "react";
-import { Outlet, Link, useNavigate } from "react-router-dom";
+import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowLeftIcon,
   ArrowRightOnRectangleIcon,
@@ -7,7 +7,23 @@ import {
 
 export default function ActivityLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const { pathname } = location;
+
+  const handleBack = () => {
+    // If we are on Routine List, go back to Category Select
+    if (pathname.includes('/routine/list')) {
+      const patientIdMatch = pathname.match(/\/activity\/([^/]+)\//);
+      if (patientIdMatch) {
+        navigate(`/select-category/${patientIdMatch[1]}`);
+        return;
+      }
+    }
+
+    // Otherwise use normal back
+    navigate(-1);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F3FBFC]">
@@ -15,7 +31,7 @@ export default function ActivityLayout() {
       <nav className="w-full bg-white border border-gray-300 shadow-sm px-6 lg:px-12 py-4 flex justify-between items-center">
         {/* ปุ่มย้อนกลับ */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={handleBack}
           className="flex items-center gap-2 px-4 py-2 border border-[#40C9D5] text-[#40C9D5] rounded-lg hover:bg-[#40C9D5] hover:text-white transition-all font-medium"
         >
           <ArrowLeftIcon className="w-4 h-4" />

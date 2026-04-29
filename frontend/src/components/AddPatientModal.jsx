@@ -14,7 +14,6 @@ export default function AddPatientModal({ isOpen, onClose }) {
   const [lastName, setLastName] = useState("");
   const [symptom, setSymptom] = useState("");
   const [symptomsList, setSymptomsList] = useState([]);
-  const [level, setLevel] = useState("");
   const [arm, setArm] = useState("");
 
   // console.log(symptomsList.find((item) => item.id == symptom)?.title);
@@ -39,14 +38,13 @@ export default function AddPatientModal({ isOpen, onClose }) {
     setFirstName("");
     setLastName("");
     setSymptom("");
-    setLevel("");
     setArm("");
     onClose();
   };
 
   // ไปขั้นตอนยืนยัน
   const handleSubmit = () => {
-    if (firstName.trim() && lastName.trim() && symptom && level && arm) {
+    if (firstName.trim() && lastName.trim() && symptom && arm) {
       setStep(2);
     }
   };
@@ -65,7 +63,6 @@ export default function AddPatientModal({ isOpen, onClose }) {
         await addPatientSymptom({
           patientId: newPatient.id,
           symptomsId: parseInt(symptom),
-          level: parseInt(level),
           armSide: arm,
         });
       }
@@ -149,23 +146,6 @@ export default function AddPatientModal({ isOpen, onClose }) {
               </div>
               <div>
                 <label className="block text-[#333E4D] font-medium mb-2">
-                  ระดับอาการ (1-5) <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={level}
-                  onChange={(e) => setLevel(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#40C9D5] focus:border-transparent transition-all text-[#333E4D] bg-white"
-                >
-                  <option value="">เลือกระดับอาการ</option>
-                  {[1, 2, 3, 4, 5].map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[#333E4D] font-medium mb-2">
                   ข้างที่มีอาการ <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -192,8 +172,6 @@ export default function AddPatientModal({ isOpen, onClose }) {
                 <p className="text-[#333E4D] text-2xl font-semibold">
                   {symptomsList.find((item) => item.id == symptom)?.title}
                 </p>
-                <p className="text-[#7E8C94] text-sm mb-2">ระดับอาการ</p>
-                <p className="text-[#333E4D] text-2xl font-semibold">{level}</p>
                 <p className="text-[#7E8C94] text-sm mb-2">ข้างที่มีอาการ</p>
                 <p className="text-[#333E4D] text-2xl font-semibold">{arm}</p>
               </div>
@@ -221,7 +199,6 @@ export default function AddPatientModal({ isOpen, onClose }) {
                   !firstName.trim() ||
                   !lastName.trim() ||
                   !symptom ||
-                  !level ||
                   !arm
                 }
                 className="flex-1 px-6 py-3 bg-[#40C9D5] text-white rounded-xl font-medium hover:bg-[#35B5C0] transition-all disabled:opacity-50 disabled:cursor-not-allowed"

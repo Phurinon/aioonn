@@ -1,0 +1,6 @@
+# Root-level gitignore
+.env
+*.log
+
+# Docker
+docker-compose.override.yml

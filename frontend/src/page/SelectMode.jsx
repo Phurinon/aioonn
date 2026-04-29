@@ -6,14 +6,25 @@ export default function SelectMode() {
   const { patientId, categoryId } = useParams();
   const [modes, setModes] = useState([]);
 
+  // Mapping Category ชื่อใหม่
+  const categoryMapping = {
+    active: "Active",
+    passive: "Passive",
+    preset: "Preset",
+  };
+
   useEffect(() => {
     getTherapyType()
       .then((res) => {
         const data = res.data;
         if (data && Array.isArray(data)) {
-          // Filter modes by category
+          // Filter modes by category (support both raw ID and mapped name)
+          const currentCategoryName = categoryMapping[categoryId] || categoryId;
           const filteredModes = data.filter(
-            (item) => item.category === categoryId
+            (item) =>
+              item.category === categoryId ||
+              (item.category && item.category.toLowerCase() === currentCategoryName.toLowerCase()) ||
+              (item.category && item.category.toLowerCase() === categoryId.toLowerCase())
           );
           setModes(filteredModes);
         }
@@ -27,7 +38,7 @@ export default function SelectMode() {
     <div className="w-full min-h-screen bg-[#F3FBFC]">
       <div className="w-full max-w-5xl mx-auto px-6 py-16">
         <h1 className="text-[36px] font-bold text-[#344054] mb-4 text-center">
-          โหมด: <span className="text-[#40C9D5]">{categoryId}</span>
+          โหมด: <span className="text-[#40C9D5]">{categoryMapping[categoryId] || categoryId}</span>
         </h1>
         <p className="text-[#7E8C94] text-[16px] font-medium text-center mb-12">
           เลือกโหมดการฝึกที่คุณต้องการ
